@@ -1,0 +1,70 @@
+     A* ---------------------------------------------------------------
+     A* INV400P - Stock status report, 132 columns
+     A* CRTPRTF ... PAGESIZE(66 132) OVRFLW(60)
+     A* ---------------------------------------------------------------
+     A          R HEADER                    SKIPB(1)
+     A            H1PGM         10A        1
+     A                                    50'STOCK STATUS REPORT'
+     A                                   103'Date:'
+     A                                   110DATE
+     A                                      EDTCDE(Y)
+     A                                   120'Page:'
+     A                                   127PAGNBR
+     A                                      EDTCDE(Z)
+     A            H1USER        10A        1SPACEB(1)
+     A                                    46'Warehouse Inventory System'
+     A                                   103'Time:'
+     A                                   110TIME
+     A            H1SEL         80A        1SPACEB(2)
+     A                                     1'Item'
+     A                                      SPACEB(2)
+     A                                    13'Description'
+     A                                    55'Cat'
+     A                                    61'UOM'
+     A                                    71'On hand'
+     A                                    83'Minimum'
+     A                                    97'Unit price'
+     A                                   118'Stock value'
+     A                                   131'R'
+     A            H1LINE       132A        1SPACEB(1)
+     A*
+     A          R WHSHDR                    SPACEB(2)
+     A                                     1'Warehouse'
+     A            W4WHS          3A       11
+     A            W4NAME        30A       16
+     A*
+     A          R DETAIL                    SPACEB(1)
+     A            D4ITEM        10A        1
+     A            D4DESC        40A       13
+     A            D4CATG         4A       55
+     A            D4UOM          3A       61
+     A            D4QTY          9S 0     66EDTCDE(J)
+     A            D4MINQ         7S 0     80EDTCDE(J)
+     A            D4PRICE       11S 2     92EDTCDE(J)
+     A            D4VALUE       15S 2    108EDTCDE(J)
+     A            D4FLAG         1A      131
+     A*
+     A          R WHSTOT                    SPACEB(1)
+     A                                    13'Total'
+     A            T4CNT          5S 0     19EDTCDE(Z)
+     A                                    25'items,'
+     A            T4REORD        5S 0     32EDTCDE(Z)
+     A                                    38'to reorder'
+     A            T4QTY         11S 0     63EDTCDE(J)
+     A            T4VALUE       15S 2    108EDTCDE(J)
+     A*
+     A          R GRDTOT                    SPACEB(2)
+     A                                     1'GRAND TOTAL'
+     A            G4CNT          5S 0     19EDTCDE(Z)
+     A                                    25'items,'
+     A            G4REORD        5S 0     32EDTCDE(Z)
+     A                                    38'to reorder'
+     A            G4QTY         11S 0     63EDTCDE(J)
+     A            G4VALUE       15S 2    108EDTCDE(J)
+     A*
+     A          R NODATA                    SPACEB(2)
+     A                                     1'No stock records match the'
+     A                                    28'selection.'
+     A*
+     A          R ENDRPT                    SPACEB(2)
+     A                                    50'*** End of report ***'

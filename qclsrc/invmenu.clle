@@ -1,0 +1,65 @@
+/* ================================================================ */
+/* INVMENU - Main menu of the warehouse inventory application       */
+/*                                                                  */
+/* Puts the data library in the library list, shows menu INVMNUD    */
+/* and calls the programs. Option 4 prints the stock report in this */
+/* job. On a normal system it would be SBMJOB to batch; the PUB400  */
+/* batch subsystem rejects both QCMDB and QCMDI routing data        */
+/* (CPC1117), so the report runs interactively here.                */
+/* ================================================================ */
+             PGM
+
+             DCLF       FILE(INVMNUD)
+             DCL        VAR(&HOLCNT) TYPE(*CHAR) LEN(10)
+
+             ADDLIBLE   LIB(DODIKIBMI2)
+             MONMSG     MSGID(CPF2103) /* already in the library list */
+
+             CHGVAR     VAR(&M1PGM) VALUE('INVMENU')
+             CHGVAR     VAR(&M1WHS) VALUE('*')
+             CHGVAR     VAR(&M1ROD) VALUE('N')
+
+ LOOP:       SNDRCVF    RCDFMT(MENU)
+             CHGVAR     VAR(&M1MSG) VALUE(' ')
+             IF         COND(&IN03 *OR &IN12) THEN(GOTO CMDLBL(DONE))
+
+             SELECT
+             WHEN       COND(&M1OPT *EQ '1') THEN(CALL PGM(INV100R))
+             WHEN       COND(&M1OPT *EQ '2') THEN(CALL PGM(INV200R))
+             WHEN       COND(&M1OPT *EQ '3') THEN(CALL PGM(INV300R))
+
+             WHEN       COND(&M1OPT *EQ '4') THEN(DO)
+             CHGVAR     VAR(&M1MSG) +
+                          VALUE('Report printed: WRKSPLF, file INV400P.')
+             CALL       PGM(INV400R) PARM(&M1WHS &M1ROD)
+             MONMSG     MSGID(CPF0000) EXEC(CHGVAR VAR(&M1MSG) +
+                          VALUE('Report failed: see the job log.'))
+             ENDDO
+
+             WHEN       COND(&M1OPT *EQ '5') THEN(DO)
+             CHGVAR     VAR(&M1MSG) +
+                          VALUE('Stock exported to /home/DODIKIBMI/inventory.')
+             CALL       PGM(INV500R)
+             MONMSG     MSGID(CPF0000) EXEC(CHGVAR VAR(&M1MSG) +
+                          VALUE('JSON export failed: see the job log.'))
+             ENDDO
+
+             WHEN       COND(&M1OPT *EQ '6') THEN(DO)
+             CALL       PGM(INV600R) PARM(&HOLCNT)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             CHGVAR     VAR(&M1MSG) +
+                          VALUE('Holiday load failed: see the job log.')
+             GOTO       CMDLBL(NEXT)
+             ENDDO
+             CHGVAR     VAR(&M1MSG) VALUE('Public holidays loaded or +
+                          updated: ' *CAT &HOLCNT)
+             ENDDO
+
+             OTHERWISE  CMD(CHGVAR VAR(&M1MSG) +
+                          VALUE('Type an option number from the list.'))
+             ENDSELECT
+
+ NEXT:       CHGVAR     VAR(&M1OPT) VALUE(' ')
+             GOTO       CMDLBL(LOOP)
+
+ DONE:       ENDPGM

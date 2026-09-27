@@ -1,0 +1,65 @@
+     A* ---------------------------------------------------------------
+     A* INV110D - Item maintenance: add / change / delete / display
+     A* 50 = protect all input (display, delete)
+     A* 51 = protect item code (every mode except add)
+     A* 52 = delete mode footer, 61-67 = field in error
+     A* ---------------------------------------------------------------
+     A                                      DSPSIZ(24 80 *DS3)
+     A                                      INDARA
+     A                                      PRINT
+     A                                      CA03(03 'Exit')
+     A                                      CA12(12 'Cancel')
+     A*
+     A          R DETAIL
+     A            D1PGM         10A  O  1  2
+     A            D1TITLE       30A  O  1 26DSPATR(HI)
+     A                                  1 60'Date:'
+     A                                  1 71DATE
+     A                                      EDTCDE(Y)
+     A                                  2  2USER
+     A                                  2 26'     Warehouse Inventory'
+     A                                  2 60'Time:'
+     A                                  2 71TIME
+     A                                  4  2'Item code  . . . . . .'
+     A            D1ITEM        10A  B  4 25
+     A  51                                  DSPATR(PR)
+     A  61                                  DSPATR(RI PC)
+     A                                  6  2'Description  . . . . .'
+     A            D1DESC        40A  B  6 25CHECK(LC)
+     A  50                                  DSPATR(PR)
+     A  62                                  DSPATR(RI PC)
+     A                                  7  2'Category . . . . . . .'
+     A            D1CATG         4A  B  7 25
+     A  50                                  DSPATR(PR)
+     A  63                                  DSPATR(RI PC)
+     A                                  7 31'OFFC ELEC CLNG PACK'
+     A                                      COLOR(BLU)
+     A                                  8  2'Unit of measure  . . .'
+     A            D1UOM          3A  B  8 25
+     A  50                                  DSPATR(PR)
+     A  64                                  DSPATR(RI PC)
+     A                                  9  2'Unit price . . . . . .'
+     A            D1PRICE       11Y 2B  9 25EDTCDE(3)
+     A  50                                  DSPATR(PR)
+     A  65                                  DSPATR(RI PC)
+     A                                 10  2'Minimum stock  . . . .'
+     A            D1MINQ         7Y 0B 10 25EDTCDE(3)
+     A  50                                  DSPATR(PR)
+     A  66                                  DSPATR(RI PC)
+     A                                 11  2'Status . . . . . . . .'
+     A            D1STAT         1A  B 11 25
+     A  50                                  DSPATR(PR)
+     A  67                                  DSPATR(RI PC)
+     A                                 11 31'A=Active  I=Inactive'
+     A                                      COLOR(BLU)
+     A                                 13  2'Stock on hand  . . . .'
+     A            D1QTY          9Y 0O 13 25EDTCDE(1)
+     A                                 15  2'Created  . . . . . . .'
+     A            D1CRT         40A  O 15 25
+     A                                 16  2'Last changed . . . . .'
+     A            D1CHG         40A  O 16 25
+     A            D1MSG         78A  O 22  2COLOR(WHT)
+     A                                 23  2'F3=Exit   F12=Cancel'
+     A                                      COLOR(BLU)
+     A  52                             23 25'Enter=Confirm delete'
+     A  52                                  COLOR(RED)

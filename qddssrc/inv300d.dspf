@@ -1,0 +1,81 @@
+     A* ---------------------------------------------------------------
+     A* INV300D - Stock card: movements of one item in one warehouse
+     A* with opening balance, running balance and closing balance.
+     A* F4 on item / warehouse opens the INV900R prompt window.
+     A* ---------------------------------------------------------------
+     A                                      DSPSIZ(24 80 *DS3)
+     A                                      INDARA
+     A                                      PRINT
+     A                                      CA03(03 'Exit')
+     A                                      CF04(04 'Prompt')
+     A                                      CA12(12 'Cancel')
+     A*
+     A          R SFL03                     SFL
+     A            S3DATE          L  O  9  2DATFMT(*ISO)
+     A            S3NO           9Y 0O  9 13EDTCDE(3)
+     A            S3TYPE         1A  O  9 23
+     A            S3REF         20A  O  9 25
+     A            S3IN           9Y 0O  9 46EDTCDE(4)
+     A            S3OUT          9Y 0O  9 56EDTCDE(4)
+     A            S3BAL          9Y 0O  9 66EDTCDE(L)
+     A*
+     A          R CTL03                     SFLCTL(SFL03)
+     A                                      SFLSIZ(0012)
+     A                                      SFLPAG(0011)
+     A                                      CF05(05 'Refresh')
+     A                                      OVERLAY
+     A                                      RTNCSRLOC(&C3CRCD &C3CFLD)
+     A  31                                  SFLDSP
+     A  32                                  SFLDSPCTL
+     A  33                                  SFLCLR
+     A  34                                  SFLEND(*MORE)
+     A            RRN03          4S 0H      SFLRCDNBR(CURSOR)
+     A            C3CRCD        10A  H
+     A            C3CFLD        10A  H
+     A            C3PGM         10A  O  1  2
+     A                                  1 26'          Stock Card'
+     A                                      DSPATR(HI)
+     A                                  1 60'Date:'
+     A                                  1 71DATE
+     A                                      EDTCDE(Y)
+     A                                  2  2USER
+     A                                  2 26'     Warehouse Inventory'
+     A                                  2 60'Time:'
+     A                                  2 71TIME
+     A                                  4  2'Item . . . . . .'
+     A            C3ITEM        10A  B  4 19
+     A  61                                  DSPATR(RI PC)
+     A            C3DESC        40A  O  4 31
+     A                                  5  2'Warehouse  . . .'
+     A            C3WHS          3A  B  5 19
+     A  62                                  DSPATR(RI PC)
+     A            C3WHNM        30A  O  5 31
+     A                                  6  2'From date  . . .'
+     A            C3FROM          L  B  6 19DATFMT(*ISO)
+     A                                  6 48'Opening balance'
+     A            C3OPEN         9Y 0O  6 66EDTCDE(L)
+     A                                      DSPATR(HI)
+     A                                  8  2'Date'
+     A                                      DSPATR(HI)
+     A                                  8 16'Mov.no'
+     A                                      DSPATR(HI)
+     A                                  8 23'T'
+     A                                      DSPATR(HI)
+     A                                  8 25'Reference'
+     A                                      DSPATR(HI)
+     A                                  8 53'In'
+     A                                      DSPATR(HI)
+     A                                  8 62'Out'
+     A                                      DSPATR(HI)
+     A                                  8 69'Balance'
+     A                                      DSPATR(HI)
+     A*
+     A          R FKEY03
+     A                                 21 48'Closing balance'
+     A            K3CLOSE        9Y 0O 21 66EDTCDE(L)
+     A                                      DSPATR(HI)
+     A            K3MSG         78A  O 22  2COLOR(WHT)
+     A                                 23  2'F3=Exit   F4=Prompt'
+     A                                      COLOR(BLU)
+     A                                 23 25'F5=Refresh   F12=Cancel'
+     A                                      COLOR(BLU)

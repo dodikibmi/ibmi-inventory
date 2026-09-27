@@ -1,0 +1,66 @@
+     A* ---------------------------------------------------------------
+     A* INV100D - Work with Items (load-all subfile)
+     A* Options 2=Change 4=Delete 5=Display 6=Stock card, F6=Add.
+     A* ---------------------------------------------------------------
+     A                                      DSPSIZ(24 80 *DS3)
+     A                                      INDARA
+     A                                      PRINT
+     A                                      CA03(03 'Exit')
+     A                                      CA12(12 'Cancel')
+     A*
+     A          R SFL01                     SFL
+     A            S1OPT          1A  B  8  3
+     A            S1ITEM        10A  O  8  7
+     A            S1DESC        40A  O  8 19
+     A            S1UOM          3A  O  8 61
+     A            S1STAT         1A  O  8 66
+     A            S1QTY          9Y 0O  8 69EDTCDE(3)
+     A*
+     A          R CTL01                     SFLCTL(SFL01)
+     A                                      SFLSIZ(0013)
+     A                                      SFLPAG(0012)
+     A                                      CA05(05 'Refresh')
+     A                                      CA06(06 'Add')
+     A                                      OVERLAY
+     A  31                                  SFLDSP
+     A  32                                  SFLDSPCTL
+     A  33                                  SFLCLR
+     A  34                                  SFLEND(*MORE)
+     A            RRN01          4S 0H      SFLRCDNBR(CURSOR)
+     A            C1PGM         10A  O  1  2
+     A                                  1 26'       Work with Items'
+     A                                      DSPATR(HI)
+     A                                  1 60'Date:'
+     A                                  1 71DATE
+     A                                      EDTCDE(Y)
+     A                                  2  2USER
+     A                                  2 26'     Warehouse Inventory'
+     A                                  2 60'Time:'
+     A                                  2 71TIME
+     A                                  4  2'Position to item . . .'
+     A            C1POS         10A  B  4 25
+     A                                  5  2'Type options, press Enter.'
+     A                                      COLOR(BLU)
+     A                                  6  4'2=Change  4=Delete  5=Display'
+     A                                      COLOR(BLU)
+     A                                  6 35'6=Stock card'
+     A                                      COLOR(BLU)
+     A                                  7  2'Opt'
+     A                                      DSPATR(HI)
+     A                                  7  7'Item'
+     A                                      DSPATR(HI)
+     A                                  7 19'Description'
+     A                                      DSPATR(HI)
+     A                                  7 61'UOM'
+     A                                      DSPATR(HI)
+     A                                  7 65'St'
+     A                                      DSPATR(HI)
+     A                                  7 71'On hand'
+     A                                      DSPATR(HI)
+     A*
+     A          R FKEY01
+     A            F1MSG         78A  O 22  2COLOR(WHT)
+     A                                 23  2'F3=Exit   F5=Refresh'
+     A                                      COLOR(BLU)
+     A                                 23 25'F6=Add   F12=Cancel'
+     A                                      COLOR(BLU)

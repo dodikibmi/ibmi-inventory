@@ -1,0 +1,36 @@
+     A* ---------------------------------------------------------------
+     A* INVMNUD - Main menu of the warehouse inventory application
+     A* Used from CL (INVMENU): no INDARA, CL reads &IN03 / &IN12.
+     A* ---------------------------------------------------------------
+     A                                      DSPSIZ(24 80 *DS3)
+     A                                      PRINT
+     A                                      CA03(03 'Exit')
+     A                                      CA12(12 'Cancel')
+     A*
+     A          R MENU
+     A            M1PGM         10A  O  1  2
+     A                                  1 26'          Main Menu'
+     A                                      DSPATR(HI)
+     A                                  1 60'Date:'
+     A                                  1 71DATE
+     A                                      EDTCDE(Y)
+     A                                  2  2USER
+     A                                  2 26'     Warehouse Inventory'
+     A                                  2 60'Time:'
+     A                                  2 71TIME
+     A                                  4  2'Select one of the following:'
+     A                                  6  5'1. Work with items'
+     A                                  7  5'2. Stock movement entry'
+     A                                  8  5'3. Stock card'
+     A                                  9  5'4. Print stock status report'
+     A                                 10  9'Warehouse (* = all) . . .'
+     A            M1WHS          3A  B 10 36
+     A                                 11  9'Reorder items only (Y/N)'
+     A            M1ROD          1A  B 11 36VALUES('Y' 'N')
+     A                                 12  5'5. Export stock status to JSON'
+     A                                 13  5'6. Load public holidays (REST)'
+     A                                 20  2'Selection . . .'
+     A            M1OPT          1A  B 20 18
+     A            M1MSG         78A  O 22  2COLOR(WHT)
+     A                                 23  2'F3=Exit   F12=Cancel'
+     A                                      COLOR(BLU)

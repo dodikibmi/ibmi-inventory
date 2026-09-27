@@ -1,0 +1,28 @@
+/* ================================================================ */
+/* DATEUTILB - binder source of service program DATEUTIL            */
+/*                                                                  */
+/* Two signatures. V1.00 shipped without DateAddWdays; V2.00 added  */
+/* it at the END of the list. Programs bound to V1.00 keep running  */
+/* without a rebind because the *PRV block still lists the V1.00    */
+/* exports in the same order. Never reorder or insert in the middle.*/
+/* ================================================================ */
+STRPGMEXP  PGMLVL(*CURRENT) SIGNATURE('DATEUTIL V2.00')
+  EXPORT     SYMBOL(DATEMONTHBEG)
+  EXPORT     SYMBOL(DATEMONTHEND)
+  EXPORT     SYMBOL(DATEISLEAP)
+  EXPORT     SYMBOL(DATEDAYOFWEEK)
+  EXPORT     SYMBOL(DATEDAYNAME)
+  EXPORT     SYMBOL(DATEISHOLIDAY)
+  EXPORT     SYMBOL(DATEISWORKDAY)
+  EXPORT     SYMBOL(DATEADDWDAYS)
+ENDPGMEXP
+
+STRPGMEXP  PGMLVL(*PRV) SIGNATURE('DATEUTIL V1.00')
+  EXPORT     SYMBOL(DATEMONTHBEG)
+  EXPORT     SYMBOL(DATEMONTHEND)
+  EXPORT     SYMBOL(DATEISLEAP)
+  EXPORT     SYMBOL(DATEDAYOFWEEK)
+  EXPORT     SYMBOL(DATEDAYNAME)
+  EXPORT     SYMBOL(DATEISHOLIDAY)
+  EXPORT     SYMBOL(DATEISWORKDAY)
+ENDPGMEXP

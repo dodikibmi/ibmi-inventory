@@ -1,0 +1,41 @@
+     A* ---------------------------------------------------------------
+     A* INV900D - F4 prompt window (items, warehouses, movement types)
+     A* DUMMY/ASSUME keeps the caller's screen visible under the window.
+     A* Window height 16: list rows 5-14, More/Bottom 15, message line 16.
+     A* ---------------------------------------------------------------
+     A                                      DSPSIZ(24 80 *DS3)
+     A                                      INDARA
+     A                                      PRINT
+     A                                      CA03(03 'Exit')
+     A                                      CA12(12 'Cancel')
+     A*
+     A          R SFL02                     SFL
+     A            S2OPT          1A  B  5  2
+     A            S2CODE        10A  O  5  5
+     A            S2DESC        40A  O  5 17
+     A*
+     A          R CTL02                     SFLCTL(SFL02)
+     A                                      SFLSIZ(0011)
+     A                                      SFLPAG(0010)
+     A                                      WINDOW(3 10 16 58)
+     A                                      OVERLAY
+     A  31                                  SFLDSP
+     A  32                                  SFLDSPCTL
+     A  33                                  SFLCLR
+     A  34                                  SFLEND(*MORE)
+     A            RRN02          4S 0H      SFLRCDNBR(CURSOR)
+     A            W2TITLE       40A  O  1 10DSPATR(HI)
+     A                                  2  1'Position to . .'
+     A            W2POS         10A  B  2 17
+     A            W2MSG         30A  O  2 29COLOR(WHT)
+     A                                  3  1'1=Select   F12=Cancel'
+     A                                      COLOR(BLU)
+     A                                  4  1'Opt'
+     A                                      DSPATR(HI)
+     A                                  4  5'Code'
+     A                                      DSPATR(HI)
+     A                                  4 17'Description'
+     A                                      DSPATR(HI)
+     A*
+     A          R DUMMY                     ASSUME
+     A                                  1  2' '

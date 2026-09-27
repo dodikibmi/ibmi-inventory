@@ -1,0 +1,3 @@
+# Keep LF endings: the shell scripts run in PASE and the sources are uploaded to IBM i
+* text=auto eol=lf
+*.png binary

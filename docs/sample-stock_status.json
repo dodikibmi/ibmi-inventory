@@ -1,0 +1,286 @@
+{
+  "application": "IBM i Warehouse Inventory",
+  "generated": "2026-09-26 16:18:52",
+  "warehouses": [
+    {
+      "code": "CTR",
+      "name": "Central Warehouse",
+      "itemCount": 20,
+      "totalValue": 90433000.0,
+      "items": [
+        {
+          "item": "CL-0001",
+          "description": "FLOOR CLEANER 5L1",
+          "category": "CLNG",
+          "onHand": 30,
+          "minimum": 12,
+          "reorder": false
+        },
+        {
+          "item": "CL-0002",
+          "description": "HAND SOAP REFILL 1L",
+          "category": "CLNG",
+          "onHand": 48,
+          "minimum": 24,
+          "reorder": false
+        },
+        {
+          "item": "CL-0003",
+          "description": "TISSUE ROLL (PACK OF 10)",
+          "category": "CLNG",
+          "onHand": 90,
+          "minimum": 30,
+          "reorder": false
+        },
+        {
+          "item": "CL-0004",
+          "description": "GARBAGE BAG LARGE (ROLL)",
+          "category": "CLNG",
+          "onHand": 150,
+          "minimum": 40,
+          "reorder": false
+        },
+        {
+          "item": "EL-0001",
+          "description": "USB FLASH DRIVE 64GB",
+          "category": "ELEC",
+          "onHand": 75,
+          "minimum": 20,
+          "reorder": false
+        },
+        {
+          "item": "EL-0002",
+          "description": "WIRELESS MOUSE",
+          "category": "ELEC",
+          "onHand": 40,
+          "minimum": 15,
+          "reorder": false
+        },
+        {
+          "item": "EL-0003",
+          "description": "USB KEYBOARD",
+          "category": "ELEC",
+          "onHand": 33,
+          "minimum": 15,
+          "reorder": false
+        },
+        {
+          "item": "EL-0004",
+          "description": "LED MONITOR 24 INCH",
+          "category": "ELEC",
+          "onHand": 7,
+          "minimum": 5,
+          "reorder": false
+        },
+        {
+          "item": "EL-0005",
+          "description": "UPS 1200VA",
+          "category": "ELEC",
+          "onHand": 4,
+          "minimum": 3,
+          "reorder": false
+        },
+        {
+          "item": "EL-0006",
+          "description": "HDMI CABLE 2M",
+          "category": "ELEC",
+          "onHand": 15,
+          "minimum": 25,
+          "reorder": true
+        },
+        {
+          "item": "OF-0001",
+          "description": "A4 COPY PAPER 80GSM (REAM)",
+          "category": "OFFC",
+          "onHand": 320,
+          "minimum": 50,
+          "reorder": false
+        },
+        {
+          "item": "OF-0002",
+          "description": "BALLPOINT PEN BLUE (BOX OF 12)",
+          "category": "OFFC",
+          "onHand": 120,
+          "minimum": 30,
+          "reorder": false
+        },
+        {
+          "item": "OF-0003",
+          "description": "STAPLER HEAVY DUTY",
+          "category": "OFFC",
+          "onHand": 18,
+          "minimum": 10,
+          "reorder": false
+        },
+        {
+          "item": "OF-0004",
+          "description": "LEVER ARCH FILE FOLIO",
+          "category": "OFFC",
+          "onHand": 210,
+          "minimum": 40,
+          "reorder": false
+        },
+        {
+          "item": "OF-0005",
+          "description": "WHITEBOARD MARKER BLACK (BOX 12)",
+          "category": "OFFC",
+          "onHand": 9,
+          "minimum": 15,
+          "reorder": true
+        },
+        {
+          "item": "PK-0001",
+          "description": "CARTON BOX 40X30X30",
+          "category": "PACK",
+          "onHand": 640,
+          "minimum": 100,
+          "reorder": false
+        },
+        {
+          "item": "PK-0002",
+          "description": "BUBBLE WRAP ROLL 50M",
+          "category": "PACK",
+          "onHand": 14,
+          "minimum": 6,
+          "reorder": false
+        },
+        {
+          "item": "PK-0003",
+          "description": "PACKING TAPE CLEAR 48MM",
+          "category": "PACK",
+          "onHand": 180,
+          "minimum": 60,
+          "reorder": false
+        },
+        {
+          "item": "PK-0004",
+          "description": "STRETCH FILM 500MM",
+          "category": "PACK",
+          "onHand": 21,
+          "minimum": 10,
+          "reorder": false
+        },
+        {
+          "item": "PK-0005",
+          "description": "PALLET WOODEN 120X100",
+          "category": "PACK",
+          "onHand": 12,
+          "minimum": 8,
+          "reorder": false
+        }
+      ]
+    },
+    {
+      "code": "EST",
+      "name": "East Distribution Hub",
+      "itemCount": 7,
+      "totalValue": 17521000.0,
+      "items": [
+        {
+          "item": "CL-0003",
+          "description": "TISSUE ROLL (PACK OF 10)",
+          "category": "CLNG",
+          "onHand": 25,
+          "minimum": 30,
+          "reorder": true
+        },
+        {
+          "item": "EL-0001",
+          "description": "USB FLASH DRIVE 64GB",
+          "category": "ELEC",
+          "onHand": 12,
+          "minimum": 20,
+          "reorder": true
+        },
+        {
+          "item": "EL-0004",
+          "description": "LED MONITOR 24 INCH",
+          "category": "ELEC",
+          "onHand": 2,
+          "minimum": 5,
+          "reorder": true
+        },
+        {
+          "item": "OF-0001",
+          "description": "A4 COPY PAPER 80GSM (REAM)",
+          "category": "OFFC",
+          "onHand": 140,
+          "minimum": 50,
+          "reorder": false
+        },
+        {
+          "item": "OF-0002",
+          "description": "BALLPOINT PEN BLUE (BOX OF 12)",
+          "category": "OFFC",
+          "onHand": 22,
+          "minimum": 30,
+          "reorder": true
+        },
+        {
+          "item": "PK-0001",
+          "description": "CARTON BOX 40X30X30",
+          "category": "PACK",
+          "onHand": 280,
+          "minimum": 100,
+          "reorder": false
+        },
+        {
+          "item": "PK-0005",
+          "description": "PALLET WOODEN 120X100",
+          "category": "PACK",
+          "onHand": 6,
+          "minimum": 8,
+          "reorder": true
+        }
+      ]
+    },
+    {
+      "code": "WST",
+      "name": "West Distribution Hub",
+      "itemCount": 5,
+      "totalValue": 5524500.0,
+      "items": [
+        {
+          "item": "CL-0001",
+          "description": "FLOOR CLEANER 5L1",
+          "category": "CLNG",
+          "onHand": 8,
+          "minimum": 12,
+          "reorder": true
+        },
+        {
+          "item": "OF-0001",
+          "description": "A4 COPY PAPER 80GSM (REAM)",
+          "category": "OFFC",
+          "onHand": 35,
+          "minimum": 50,
+          "reorder": true
+        },
+        {
+          "item": "OF-0004",
+          "description": "LEVER ARCH FILE FOLIO",
+          "category": "OFFC",
+          "onHand": 60,
+          "minimum": 40,
+          "reorder": false
+        },
+        {
+          "item": "PK-0001",
+          "description": "CARTON BOX 40X30X30",
+          "category": "PACK",
+          "onHand": 95,
+          "minimum": 100,
+          "reorder": true
+        },
+        {
+          "item": "PK-0003",
+          "description": "PACKING TAPE CLEAR 48MM",
+          "category": "PACK",
+          "onHand": 44,
+          "minimum": 60,
+          "reorder": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+     A* ---------------------------------------------------------------
+     A* INV200D - Stock movement entry
+     A* Enter = validate and preview, F10 = post (commitment control)
+     A* 61-65 = field in error, 70 = preview ready
+     A* F4 on type / item / warehouse opens the INV900R prompt window;
+     A* RTNCSRLOC returns the field the cursor was on.
+     A* ---------------------------------------------------------------
+     A                                      DSPSIZ(24 80 *DS3)
+     A                                      INDARA
+     A                                      PRINT
+     A                                      CA03(03 'Exit')
+     A                                      CF04(04 'Prompt')
+     A                                      CA05(05 'Clear')
+     A                                      CF10(10 'Post')
+     A                                      CA12(12 'Cancel')
+     A*
+     A          R ENTRY                     RTNCSRLOC(&D2CRCD &D2CFLD)
+     A            D2CRCD        10A  H
+     A            D2CFLD        10A  H
+     A            D2PGM         10A  O  1  2
+     A                                  1 26'     Stock Movement Entry'
+     A                                      DSPATR(HI)
+     A                                  1 60'Date:'
+     A                                  1 71DATE
+     A                                      EDTCDE(Y)
+     A                                  2  2USER
+     A                                  2 26'     Warehouse Inventory'
+     A                                  2 60'Time:'
+     A                                  2 71TIME
+     A                                  4  2'Movement type  . . . .'
+     A            D2TYPE         1A  B  4 25
+     A  61                                  DSPATR(RI PC)
+     A                                  4 31'I=Goods in  O=Goods out  A=Adjust'
+     A                                      COLOR(BLU)
+     A                                  6  2'Item code  . . . . . .'
+     A            D2ITEM        10A  B  6 25
+     A  62                                  DSPATR(RI PC)
+     A            D2DESC        40A  O  6 37
+     A                                  7  2'Warehouse  . . . . . .'
+     A            D2WHS          3A  B  7 25
+     A  63                                  DSPATR(RI PC)
+     A            D2WHNM        30A  O  7 37
+     A                                  8  2'Quantity . . . . . . .'
+     A            D2QTY          9Y 0B  8 25EDTCDE(L)
+     A  64                                  DSPATR(RI PC)
+     A                                  8 37'Adjust: negative reduces stock'
+     A                                      COLOR(BLU)
+     A                                  9  2'Movement date  . . . .'
+     A            D2DATE          L  B  9 25DATFMT(*ISO)
+     A  65                                  DSPATR(RI PC)
+     A                                  9 37'YYYY-MM-DD'
+     A                                      COLOR(BLU)
+     A                                 10  2'Reference  . . . . . .'
+     A            D2REF         20A  B 10 25CHECK(LC)
+     A  70                             12  2'Stock on hand now  . .'
+     A  70        D2CURR         9Y 0O 12 25EDTCDE(L)
+     A  70                             13  2'Stock after posting  .'
+     A  70        D2NEW          9Y 0O 13 25EDTCDE(L)
+     A  70                                  DSPATR(HI)
+     A            D2MSG         78A  O 22  2COLOR(WHT)
+     A                                 23  2'F3=Exit   F4=Prompt'
+     A                                      COLOR(BLU)
+     A                                 23 25'F5=Clear   F10=Post'
+     A                                      COLOR(BLU)
+     A                                 23 48'F12=Cancel'
+     A                                      COLOR(BLU)
