@@ -22,9 +22,10 @@ Built and tested on [PUB400.COM](https://pub400.com) (IBM i 7.5). All data is fi
 | 8 | `INV900R` | RPGLE + DSPF | Reusable **F4 prompt window** (subfile in a `WINDOW`), field detected with `RTNCSRLOC` |
 | 9 | `DATEUTIL` | ILE service program | NOMAIN module, binder source with `*CURRENT` / `*PRV` signatures, holiday table lookup |
 | 10 | `DATEUTILT` | RPGUnit test suite | 8 test cases, 24 assertions |
-| 11 | `INV600R` | SQLRPGLE | **REST client**: `QSYS2.HTTP_GET` + `JSON_TABLE` + `MERGE` loads public holidays from a web API |
+| 11 | `INV600R` | SQLRPGLE | **REST client**: `QSYS2.HTTP_GET_VERBOSE` (HTTP status checked) + `JSON_TABLE` + `MERGE` loads public holidays from a web API |
 | 12 | `POST_MOVEMENT` | SQL PL procedure | Posting rules in the database: validation, row lock, `SIGNAL SQLSTATE`, `SELECT ... FROM FINAL TABLE (INSERT ...)` |
 | 13 | `api/server.py` | Python 3.9 in PASE | **REST API** over the same tables: GET items / stock / movements, POST movements with commit / rollback and proper HTTP status codes |
+| 14 | `INV700R` | SQLRPGLE | **Outbound webhook**: reorder alert built with `LISTAGG` (one line per warehouse) + `JSON_OBJECT`, sent with `QSYS2.HTTP_POST_VERBOSE`; non-2xx status ends with an escape message |
 
 ## Screenshots
 
@@ -116,7 +117,10 @@ check while the stock row is locked, and `CHECK (STQTY >= 0)` in the database.
   program reads it back before `COMMIT`, while it still holds the stock row lock.
 - **Service program versioning** (`DATEUTILB`). Version 1.00 had seven exports; 2.00 added
   `DateAddWdays` at the end. The `*PRV` block keeps the 1.00 signature valid, so programs
-  bound to 1.00 run without being re-bound.
+  bound to 1.00 run without being re-bound. Both signatures and the one each caller is
+  bound to can be checked with SQL (`QSYS2.PROGRAM_INFO.EXPORT_SIGNATURES`,
+  `QSYS2.BOUND_SRVPGM_INFO.BOUND_SERVICE_PROGRAM_SIGNATURE`; the signature is the
+  EBCDIC text, e.g. `C4C1E3C5E4E3C9D340E5F24BF0F04040` = `DATEUTIL V2.00`).
 - **One reusable prompt window** (`INV900R`) serves items, warehouses and movement types.
   A `DUMMY` record with `ASSUME` keeps the calling screen visible under the window.
 
@@ -159,11 +163,27 @@ Then open `http://localhost:48400/api/health` in the browser. `api/test_api.sh` 
 smoke test with `curl` (success and error cases).
 
 The other direction — RPG calling a web service — is `INV600R`: Db2 fetches
-`https://date.nager.at/api/v3/PublicHolidays/{year}/ID` with `QSYS2.HTTP_GET`,
+`https://date.nager.at/api/v3/PublicHolidays/{year}/ID` with `QSYS2.HTTP_GET_VERBOSE`
+(plain `HTTP_GET` hands back the body of a 404 without any SQL error, so the program reads
+the status code first and stops with `CPF9898` on anything outside 200-299),
 `JSON_TABLE` turns the array into rows and `MERGE` inserts or updates
 `HOLIDAY_CALENDAR` for this year and next year. `DATEUTIL` picks the new dates up
 immediately, without a recompile. (That free API lists the fixed national holidays;
 holidays that follow the lunar calendar are not included.)
+
+`INV700R` pushes data out: `LISTAGG` collapses the items below their minimum into one
+line per warehouse (`WST (CL-0001, OF-0001, PK-0001, PK-0003)`), Db2 wraps it in a JSON
+message and `QSYS2.HTTP_POST_VERBOSE` posts it to a webhook (default `https://httpbin.org/post`,
+pass a Slack/Teams/ERP URL as the first parameter). The HTTP status is read from the response
+header JSON; anything outside 200-299 ends the program with `CPF9898`, so a CL job can
+`MONMSG` it.
+
+```text
+CALL INV700R                     /* posts to the default https://httpbin.org/post */
+```
+
+From CL, pass your own URL in a `*CHAR 200` variable (a literal on a command-line `CALL`
+is only as long as its text, and the program reads 200 bytes).
 
 ## Build
 
@@ -207,6 +227,7 @@ CRTBNDRPG  PGM(INV300R) SRCFILE(QRPGLESRC)
 CRTSQLRPGI OBJ(INV400R) SRCFILE(QRPGLESRC) COMMIT(*NONE)
 CRTSQLRPGI OBJ(INV500R) SRCFILE(QRPGLESRC) COMMIT(*NONE)
 CRTSQLRPGI OBJ(INV600R) SRCFILE(QRPGLESRC) COMMIT(*NONE)
+CRTSQLRPGI OBJ(INV700R) SRCFILE(QRPGLESRC) COMMIT(*NONE)
 CRTBNDCL   PGM(INVMENU) SRCFILE(QCLSRC)
 
 /* 6. Run                                                                  */
