@@ -1,0 +1,19 @@
+-- CALL BUILD_REORDER_PLAN(?)  ->  ILE COBOL program INV850C (PUB400, run on Saturday 2026-11-07)
+result: OK plan 2026-11-09:    11 lines,       457 units to order
+
+order date | whs | item    | on hand | min | to order | lead (working days) | expected   | weekday
+2026-11-09 | CTR | EL-0006 | 15      | 25  | 35       | 3                   | 2026-11-12 | Thursday
+2026-11-09 | CTR | OF-0005 | 9       | 15  | 21       | 3                   | 2026-11-12 | Thursday
+2026-11-09 | EST | CL-0003 | 25      | 30  | 35       | 5                   | 2026-11-16 | Monday
+2026-11-09 | EST | EL-0001 | 12      | 20  | 28       | 5                   | 2026-11-16 | Monday
+2026-11-09 | EST | EL-0004 | 2       | 5   | 8        | 5                   | 2026-11-16 | Monday
+2026-11-09 | EST | OF-0002 | 22      | 30  | 38       | 5                   | 2026-11-16 | Monday
+2026-11-09 | EST | PK-0005 | 6       | 8   | 10       | 5                   | 2026-11-16 | Monday
+2026-11-09 | WST | CL-0001 | 8       | 12  | 16       | 7                   | 2026-11-18 | Wednesday
+2026-11-09 | WST | OF-0001 | 35      | 60  | 85       | 7                   | 2026-11-18 | Wednesday
+2026-11-09 | WST | PK-0001 | 95      | 100 | 105      | 7                   | 2026-11-18 | Wednesday
+2026-11-09 | WST | PK-0003 | 44      | 60  | 76       | 7                   | 2026-11-18 | Wednesday
+
+Saturday 2026-11-07 is not a working day, so DateIsWorkday (RPG) returned off and
+DateAddWdays(today, 1) moved the order date to Monday 2026-11-09; the expected dates
+are 3 / 5 / 7 working days later, again computed by the RPG service program.

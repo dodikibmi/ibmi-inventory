@@ -33,6 +33,7 @@ Built and tested on [PUB400.COM](https://pub400.com) (IBM i 7.5). All data is fi
 | 17 | `INV830R` | SQLRPGLE | **XML file interface**: supplier delivery note read with `XML-INTO`, posted through `POST_MOVEMENT` as one unit of work; duplicate notes rejected; also callable as SQL procedure `POST_DELIVERY_NOTE` |
 | 18 | `integration/node-api` | Node.js in PASE | **REST API provider** with `idb-connector`: stock, POST movements (commit / rollback), and an inquiry endpoint answered by the RPG data queue server |
 | 19 | `integration/web` | HTML + JavaScript | **Web dashboard** ("green screen to web"): stock value, reorder count, value per warehouse, stock table, inquiry answered by RPG, movement posting - served by the Node.js API, no framework, light and dark theme |
+| 20 | `INV850C` | ILE COBOL + SQL | **COBOL calling RPG**: reorder plan from an SQL cursor; order and delivery dates from the RPG service program `DATEUTIL` (`CALL PROCEDURE`), one unit of work; callable as `BUILD_REORDER_PLAN` |
 
 ## Screenshots
 
@@ -257,6 +258,41 @@ cd integration/node-api && INV_SCHEMA=DODIKIBMI2 PORT=48401 node server.js
 # http://localhost:48401/
 ```
 
+## ILE COBOL and RPG in one program
+
+`qcblsrc/inv850c.sqlcblle` is an ILE COBOL program with embedded SQL that builds the
+reorder plan, and its dates come from the same RPG service program the RPG programs use.
+Bob compiles the COBOL source into a module (`CRTSQLCBLI ... OBJTYPE(*MODULE)`) and binds it
+with `DATEUTIL` (`CRTPGM MODULE(INV850C) BNDSRVPGM(DATEUTIL)`), so the call is a bound ILE
+call, not a dynamic program call.
+
+```cobol
+           CALL PROCEDURE "DATEADDWDAYS"
+                USING BY REFERENCE WS-ORDER-DATE
+                      BY REFERENCE WS-LEAD-DAYS
+                RETURNING WS-EXPECTED.
+```
+
+| RPG prototype | COBOL side |
+|---|---|
+| `D CONST` (date, `DATFMT(*ISO)`) | `PIC X(10)` holding `YYYY-MM-DD`, `BY REFERENCE` |
+| `10I 0 CONST` | `PIC S9(9) COMP-5`, `BY REFERENCE` (CONST is still passed by reference) |
+| return `N` | `PIC X(1)` with `88 IS-WORKDAY VALUE "1"` |
+| return `9A VARYING` | group of `PIC 9(4) COMP-5` length + `PIC X(9)` text |
+
+Run on Saturday 2026-11-07, the program moved the order date to Monday 2026-11-09 and
+planned 11 lines (457 units) with delivery dates 3, 5 and 7 working days later:
+[`docs/cobol-reorder-plan.txt`](docs/cobol-reorder-plan.txt).
+
+```text
+RUNSQLSTM SRCSTMF('sql/05_reorder_plan.sql') COMMIT(*NONE) NAMING(*SQL) DECMPT(*PERIOD)
+CALL BUILD_REORDER_PLAN(?)        -- from any SQL client
+```
+
+The COBOL SQL precompiler reads `'Y'` as a name, not a string, unless the module is
+compiled with `OPTION(*APOSTSQL)` (the default is `*QUOTESQL`): the first run failed with
+SQL0206 *Column Y not found*. The option is set for that one module in `qcblsrc/Rules.mk`.
+
 ## Build
 
 Libraries: programs in `DODIKIBMI1`, data in `DODIKIBMI2`. Change the names to your own.
@@ -274,6 +310,7 @@ RUNSQLSTM SRCSTMF('sql/01_tables.sql') COMMIT(*NONE) NAMING(*SQL) DECMPT(*PERIOD
 RUNSQLSTM SRCSTMF('sql/02_data.sql')   COMMIT(*NONE) NAMING(*SQL) DECMPT(*PERIOD)
 RUNSQLSTM SRCSTMF('sql/03_api.sql')    COMMIT(*NONE) NAMING(*SQL) DECMPT(*PERIOD)
 RUNSQLSTM SRCSTMF('sql/04_integration.sql') COMMIT(*NONE) NAMING(*SQL) DECMPT(*PERIOD)
+RUNSQLSTM SRCSTMF('sql/05_reorder_plan.sql') COMMIT(*NONE) NAMING(*SQL) DECMPT(*PERIOD)
 ```
 
 The programs are built from the stream files with **IBM Bob** (`makei`, the open-source
@@ -286,12 +323,12 @@ is exactly what is in Git.
 
 ```sh
 # in PASE, from a clone of this repository on the IBM i
-OBJLIB=DODIKIBMI1 DTALIB=DODIKIBMI2 ci/build.sh    # makei build + failure check, 22 objects
+OBJLIB=DODIKIBMI1 DTALIB=DODIKIBMI2 ci/build.sh    # makei build + failure check, 24 objects
 OBJLIB=DODIKIBMI1 RULIB=DODIKIBMI2  ci/test.sh     # RUCRTRPG from the stream file + RUCALLTST
 ```
 
 ```text
-Objects:             0 failed 22 succeed 22 total
+Objects:             0 failed 24 succeed 24 total
 Build Successful!
 ...
 Success. 8 test cases, 24 assertions, 0 failure, 0 error.
@@ -381,11 +418,13 @@ Success. 8 test cases, 24 assertions, 0 failure, 0 error.
 
 ```text
 sql/         01_tables.sql, 02_data.sql, 03_api.sql (procedure POST_MOVEMENT),
-             04_integration.sql (data queues, CSV staging, POST_DELIVERY_NOTE)
+             04_integration.sql (data queues, CSV staging, POST_DELIVERY_NOTE),
+             05_reorder_plan.sql (table + procedure for the COBOL program)
 api/         server.py (REST API), start_api.sh, test_api.sh
 integration/ node-api/ (Node.js REST API), web/ (dashboard), dtaq_client.py, run_demo.sh, samples/
 qddssrc/     display files (*.dspf) and printer file (*.prtf)
 qrpglesrc/   RPGLE / SQLRPGLE programs, DATEUTIL module, copybook, binder source, tests
+qcblsrc/     ILE COBOL reorder plan (SQL + RPG service program)
 qclsrc/      main menu, CSV interface (CLLE)
 docs/        sample output, screenshots/
 ```

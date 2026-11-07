@@ -3,7 +3,8 @@
 1. /COPY and /INCLUDE must not name a library: the source in Git is what gets built
    (only the iRPGUnit copybook QINCLUDE,TESTCASE comes from the installed product).
 2. No tab characters in IBM i source (the compilers count columns).
-3. Fixed-format RPG and DDS lines fit in 80 columns.
+3. Fixed-format RPG and DDS lines fit in 80 columns, COBOL lines in 72 (columns 73-80
+   are the identification area the compiler ignores).
 4. Every RPG program that is not a NOMAIN module or a copybook has a control spec
    with DFTACTGRP(*NO) (an ILE program, not the OPM-compatible default).
 5. Rules.mk and the source tree agree: every source named in a rule exists and
@@ -16,7 +17,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC_EXT = {".rpgle", ".sqlrpgle", ".rpgleinc", ".clle", ".dspf", ".prtf", ".bnd"}
+SRC_EXT = {".rpgle", ".sqlrpgle", ".rpgleinc", ".clle", ".dspf", ".prtf", ".bnd", ".cblle", ".sqlcblle"}
 # not built by Bob: copybooks, and the test suite (built by ci/test.sh with RUCRTRPG)
 NOT_BUILT = {"dateutilt.rpgle"}
 problems = 0
@@ -43,6 +44,8 @@ for p in sources:
             report(p, n, f"/{m.group(1).upper()} names a library ({m.group(2)}); use the stream file")
         if (fixed_rpg or p.suffix.lower() in {".dspf", ".prtf"}) and len(line) > 80:
             report(p, n, f"line is {len(line)} columns, fixed format allows 80")
+        if p.suffix.lower() in {".cblle", ".sqlcblle"} and len(line) > 72:
+            report(p, n, f"COBOL line is {len(line)} columns; text after column 72 is ignored")
     if p.suffix.lower() in {".rpgle", ".sqlrpgle"} and p.name not in NOT_BUILT:
         text = "\n".join(lines).upper()
         if "NOMAIN" not in text and "DFTACTGRP(*NO)" not in text:

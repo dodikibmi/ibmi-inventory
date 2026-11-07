@@ -1,0 +1,164 @@
+      *================================================================
+      * INV850C - Reorder plan (ILE COBOL with embedded SQL)
+      *
+      * Reads every stock line below its minimum (view STOCK_STATUS)
+      * with an SQL cursor, decides how much to order and when the
+      * goods arrive, and writes the plan to table REORDER_PLAN.
+      * The dates come from the RPG service program DATEUTIL - the
+      * same procedures the RPG programs use - called with CALL
+      * PROCEDURE: COBOL and RPG modules bound into one ILE program.
+      *   order date    = today, or the next working day
+      *   expected date = order date + lead time in WORKING days
+      *                   (CTR 3, EST 5, WST 7; holidays skipped by
+      *                   DateAddWdays through HOLIDAY_CALENDAR)
+      *   order quantity = 2 x minimum - quantity on hand
+      * One unit of work: the plan of the day is replaced completely
+      * or not at all. Parameter (out): result text, PIC X(80).
+      *================================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. INV850C.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+      * dates as *ISO text: what the RPG procedures receive and return
+       01  WS-TODAY               PIC X(10).
+       01  WS-ORDER-DATE          PIC X(10).
+       01  WS-EXPECTED            PIC X(10).
+       01  WS-ONE                 PIC S9(9) COMP-5 VALUE 1.
+       01  WS-LEAD-DAYS           PIC S9(9) COMP-5.
+       01  WS-IS-WORKDAY          PIC X(1).
+           88  IS-WORKDAY         VALUE "1".
+      * RPG 9A VARYING return value: 2-byte length + data
+       01  WS-DAY-NAME.
+           05  WS-DAY-NAME-LEN    PIC 9(4) COMP-5.
+           05  WS-DAY-NAME-TXT    PIC X(9).
+       01  WS-COUNTERS.
+           05  WS-LINES           PIC 9(5) VALUE 0.
+           05  WS-UNITS           PIC 9(9) VALUE 0.
+       01  WS-EDIT-LINES          PIC ZZZZ9.
+       01  WS-EDIT-UNITS          PIC ZZZZZZZZ9.
+       01  WS-EDIT-CODE           PIC -ZZZZZZZZ9.
+
+           EXEC SQL INCLUDE SQLCA END-EXEC.
+
+      * host variables of the cursor and the insert
+       01  H-WHS                  PIC X(3).
+       01  H-ITEM                 PIC X(10).
+       01  H-QTY                  PIC S9(9) COMP-3.
+       01  H-MINQ                 PIC S9(7) COMP-3.
+       01  H-ORDER-QTY            PIC S9(9) COMP-3.
+       01  H-DAY                  PIC X(9).
+
+       LINKAGE SECTION.
+       01  L-RESULT               PIC X(80).
+
+       PROCEDURE DIVISION USING L-RESULT.
+       MAIN-LINE.
+           EXEC SQL SET OPTION COMMIT = *CHG, DATFMT = *ISO,
+                    CLOSQLCSR = *ENDMOD
+           END-EXEC.
+           MOVE SPACES TO L-RESULT.
+
+           EXEC SQL VALUES CHAR(CURRENT DATE, ISO) INTO :WS-TODAY
+           END-EXEC.
+
+      *    order today if it is a working day, else the next one
+           CALL PROCEDURE "DATEISWORKDAY"
+                USING BY REFERENCE WS-TODAY
+                RETURNING WS-IS-WORKDAY.
+           IF IS-WORKDAY
+              MOVE WS-TODAY TO WS-ORDER-DATE
+           ELSE
+              CALL PROCEDURE "DATEADDWDAYS"
+                   USING BY REFERENCE WS-TODAY
+                         BY REFERENCE WS-ONE
+                   RETURNING WS-ORDER-DATE
+           END-IF.
+
+      *    the plan of the order date is rebuilt from scratch
+           EXEC SQL DELETE FROM REORDER_PLAN
+                     WHERE RPORDD = DATE(:WS-ORDER-DATE)
+           END-EXEC.
+           IF SQLCODE < 0
+              PERFORM SQL-ERROR
+              GOBACK
+           END-IF.
+
+           EXEC SQL DECLARE C1 CURSOR FOR
+                SELECT STWHS, STITEM, STQTY, ITMINQ
+                  FROM STOCK_STATUS
+                 WHERE REORDER = 'Y'
+                 ORDER BY STWHS, STITEM
+           END-EXEC.
+           EXEC SQL OPEN C1 END-EXEC.
+
+           PERFORM UNTIL SQLCODE NOT = 0
+              EXEC SQL FETCH C1 INTO :H-WHS, :H-ITEM, :H-QTY, :H-MINQ
+              END-EXEC
+              IF SQLCODE = 0
+                 PERFORM PLAN-ONE-LINE
+              END-IF
+           END-PERFORM.
+
+           IF SQLCODE < 0
+              PERFORM SQL-ERROR
+              GOBACK
+           END-IF.
+           EXEC SQL CLOSE C1 END-EXEC.
+           EXEC SQL COMMIT END-EXEC.
+
+           MOVE WS-LINES TO WS-EDIT-LINES.
+           MOVE WS-UNITS TO WS-EDIT-UNITS.
+           STRING "OK plan " DELIMITED BY SIZE
+                  WS-ORDER-DATE DELIMITED BY SIZE
+                  ": " DELIMITED BY SIZE
+                  WS-EDIT-LINES DELIMITED BY SIZE
+                  " lines, " DELIMITED BY SIZE
+                  WS-EDIT-UNITS DELIMITED BY SIZE
+                  " units to order" DELIMITED BY SIZE
+             INTO L-RESULT.
+           GOBACK.
+
+       PLAN-ONE-LINE.
+           EVALUATE H-WHS
+              WHEN "CTR" MOVE 3 TO WS-LEAD-DAYS
+              WHEN "EST" MOVE 5 TO WS-LEAD-DAYS
+              WHEN OTHER MOVE 7 TO WS-LEAD-DAYS
+           END-EVALUATE.
+
+           CALL PROCEDURE "DATEADDWDAYS"
+                USING BY REFERENCE WS-ORDER-DATE
+                      BY REFERENCE WS-LEAD-DAYS
+                RETURNING WS-EXPECTED.
+           CALL PROCEDURE "DATEDAYNAME"
+                USING BY REFERENCE WS-EXPECTED
+                RETURNING WS-DAY-NAME.
+           MOVE SPACES TO H-DAY.
+           MOVE WS-DAY-NAME-TXT(1:WS-DAY-NAME-LEN) TO H-DAY.
+
+           COMPUTE H-ORDER-QTY = 2 * H-MINQ - H-QTY.
+
+           EXEC SQL
+                INSERT INTO REORDER_PLAN
+                       (RPORDD, RPWHS, RPITEM, RPONHAND, RPMINQ,
+                        RPORDQ, RPLEAD, RPEXPD, RPEXPDAY)
+                VALUES (DATE(:WS-ORDER-DATE), :H-WHS, :H-ITEM,
+                        :H-QTY, :H-MINQ, :H-ORDER-QTY,
+                        :WS-LEAD-DAYS, DATE(:WS-EXPECTED), :H-DAY)
+           END-EXEC.
+           IF SQLCODE < 0
+              PERFORM SQL-ERROR
+              GOBACK
+           END-IF.
+           ADD 1 TO WS-LINES.
+           ADD H-ORDER-QTY TO WS-UNITS.
+      *    keep SQLCODE 0 so the FETCH loop goes on
+           MOVE 0 TO SQLCODE.
+
+       SQL-ERROR.
+           MOVE SQLCODE TO WS-EDIT-CODE.
+           EXEC SQL ROLLBACK END-EXEC.
+           STRING "ERROR SQLCODE " DELIMITED BY SIZE
+                  WS-EDIT-CODE DELIMITED BY SIZE
+                  " - plan rolled back" DELIMITED BY SIZE
+             INTO L-RESULT.
