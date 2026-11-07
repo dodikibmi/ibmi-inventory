@@ -32,6 +32,7 @@ Built and tested on [PUB400.COM](https://pub400.com) (IBM i 7.5). All data is fi
 | 16 | `INV820C` | CLLE | **CSV file interface**: stock export with `CPYTOIMPF` (UTF-8, header row), price list import with `CPYFRMIMPF` into a staging table, every row checked by `APPLY_PRICE_UPDATE` |
 | 17 | `INV830R` | SQLRPGLE | **XML file interface**: supplier delivery note read with `XML-INTO`, posted through `POST_MOVEMENT` as one unit of work; duplicate notes rejected; also callable as SQL procedure `POST_DELIVERY_NOTE` |
 | 18 | `integration/node-api` | Node.js in PASE | **REST API provider** with `idb-connector`: stock, POST movements (commit / rollback), and an inquiry endpoint answered by the RPG data queue server |
+| 19 | `integration/web` | HTML + JavaScript | **Web dashboard** ("green screen to web"): stock value, reorder count, value per warehouse, stock table, inquiry answered by RPG, movement posting - served by the Node.js API, no framework, light and dark theme |
 
 ## Screenshots
 
@@ -228,6 +229,34 @@ On a production system `INV810R` runs as a batch job (`SBMJOB` or an autostart j
 and the Node.js API under a service manager; the demo starts both in the background of
 one PASE session and stops them at the end (`{"cmd":"stop"}`).
 
+## Web dashboard
+
+The same stock, in a browser (`integration/web`: one HTML page, one script, one style
+sheet, no framework and no build step). The Node.js API serves the page and its data, so
+the browser talks to one origin; every number comes from Db2 for i at that moment.
+
+![Stock dashboard in a browser](docs/screenshots/web-dashboard.png)
+
+- **Tiles**: stock value (quantity x price), items below their minimum, stock lines, units.
+- **Stock value by warehouse**: bar chart drawn as SVG, follows the filters, tooltip per bar.
+- **Ask the RPG program**: clicking a row calls `/api/items/{code}/inquiry`; Node.js puts the
+  request on data queue `INVREQQ` and the RPG server `INV810R` answers on `INVRPYQ` (about
+  10 ms on PUB400).
+- **Post a movement**: calls `POST_MOVEMENT`, the same rules as the 5250 program `INV200R`;
+  a rejected movement shows the reason (`409`, SQLSTATE `75006`) and changes nothing.
+- The page only shows text through an escaping function, and the server maps the four
+  allowed paths to files itself, so no URL reaches the file system.
+
+[Dark theme](docs/screenshots/web-dashboard-dark.png) (follows the system setting, or the
+*Theme* button).
+
+```sh
+# on the IBM i (INV810R running for the inquiry panel)
+cd integration/node-api && INV_SCHEMA=DODIKIBMI2 PORT=48401 node server.js
+# on the PC: ssh -p 2222 -L 48401:127.0.0.1:48401 USER@pub400.com, then open
+# http://localhost:48401/
+```
+
 ## Build
 
 Libraries: programs in `DODIKIBMI1`, data in `DODIKIBMI2`. Change the names to your own.
@@ -354,7 +383,7 @@ Success. 8 test cases, 24 assertions, 0 failure, 0 error.
 sql/         01_tables.sql, 02_data.sql, 03_api.sql (procedure POST_MOVEMENT),
              04_integration.sql (data queues, CSV staging, POST_DELIVERY_NOTE)
 api/         server.py (REST API), start_api.sh, test_api.sh
-integration/ node-api/ (Node.js REST API), dtaq_client.py, run_demo.sh, samples/
+integration/ node-api/ (Node.js REST API), web/ (dashboard), dtaq_client.py, run_demo.sh, samples/
 qddssrc/     display files (*.dspf) and printer file (*.prtf)
 qrpglesrc/   RPGLE / SQLRPGLE programs, DATEUTIL module, copybook, binder source, tests
 qclsrc/      main menu, CSV interface (CLLE)

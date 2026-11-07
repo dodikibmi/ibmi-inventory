@@ -31,6 +31,7 @@ jobs:
         run: |
           python3 -m py_compile api/server.py integration/dtaq_client.py
           node --check integration/node-api/server.js
+          node --check integration/web/app.js
 
   build-and-test:
     needs: lint

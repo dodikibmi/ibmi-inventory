@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Warehouse Inventory - IBM i</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="viz-root">
+  <header class="top">
+    <div>
+      <h1>Warehouse inventory</h1>
+      <p class="sub">Live from Db2 for i through the Node.js REST API &middot; the same tables and posting rules as the 5250 screens</p>
+    </div>
+    <div class="right">
+      <span id="health" class="pill">connecting&hellip;</span>
+      <button id="theme" class="ghost" type="button" aria-label="Switch light or dark theme">Theme</button>
+    </div>
+  </header>
+
+  <section class="tiles" aria-label="Summary">
+    <div class="tile hero"><div class="label">Stock value</div><div class="value" id="kValue">&ndash;</div><div class="note" id="kValueNote"></div></div>
+    <div class="tile"><div class="label">Items to reorder</div><div class="value" id="kReorder">&ndash;</div><div class="note">below their minimum quantity</div></div>
+    <div class="tile"><div class="label">Stock lines</div><div class="value" id="kLines">&ndash;</div><div class="note">item &times; warehouse</div></div>
+    <div class="tile"><div class="label">Units on hand</div><div class="value" id="kUnits">&ndash;</div><div class="note" id="kUnitsNote"></div></div>
+  </section>
+
+  <section class="filters" aria-label="Filters">
+    <label>Warehouse
+      <select id="fWhs"><option value="">All warehouses</option></select>
+    </label>
+    <label class="check"><input type="checkbox" id="fReorder"> Only items to reorder</label>
+    <label>Search
+      <input type="search" id="fText" placeholder="item or description">
+    </label>
+    <button id="refresh" class="ghost" type="button">Refresh</button>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Stock value by warehouse</h2>
+      <p class="sub">Quantity &times; item price, in rupiah. Follows the filters.</p>
+      <div id="chart" class="chart" role="img" aria-label="Bar chart of stock value by warehouse"></div>
+    </section>
+
+    <section class="card">
+      <h2>Ask the RPG program</h2>
+      <p class="sub">Click a row, or type an item. The browser calls <code>/api/items/{code}/inquiry</code>; Node.js puts the request on data queue <code>INVREQQ</code> and the RPG server <code>INV810R</code> answers on <code>INVRPYQ</code>.</p>
+      <form id="inqForm" class="inline">
+        <input id="inqItem" placeholder="OF-0001" maxlength="10" required>
+        <button type="submit">Ask</button>
+      </form>
+      <div id="inqOut" class="out muted">No question asked yet.</div>
+    </section>
+  </div>
+
+  <div class="grid wide">
+    <section class="card">
+      <h2>Stock status <span class="count" id="count"></span></h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th>Warehouse</th><th>Item</th><th>Description</th>
+            <th class="num">Quantity</th><th class="num">Minimum</th><th class="num">Value</th><th>Status</th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Post a movement</h2>
+      <p class="sub">Calls the SQL procedure <code>POST_MOVEMENT</code> &ndash; one unit of work, the same checks as program <code>INV200R</code>.</p>
+      <form id="mvForm" class="stack">
+        <label>Type
+          <select id="mvType">
+            <option value="I">I &ndash; goods in</option>
+            <option value="O">O &ndash; goods out</option>
+            <option value="A">A &ndash; adjustment</option>
+          </select>
+        </label>
+        <label>Item <input id="mvItem" maxlength="10" required placeholder="OF-0003"></label>
+        <label>Warehouse <input id="mvWhs" maxlength="3" required placeholder="CTR"></label>
+        <label>Quantity <input id="mvQty" type="number" required></label>
+        <label>Reference <input id="mvRef" maxlength="20" placeholder="WEB-001"></label>
+        <button type="submit">Post</button>
+      </form>
+      <div id="mvOut" class="out muted">Nothing posted yet.</div>
+    </section>
+  </div>
+
+  <div id="tip" class="tip" role="tooltip" hidden></div>
+  <footer>Sample project on PUB400 (IBM i 7.5). All data is fictional.</footer>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

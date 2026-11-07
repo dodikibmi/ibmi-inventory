@@ -6,6 +6,7 @@
  * IBM Db2 for i driver for Node.js, a local *LOCAL connection: no password,
  * the job runs under the user who starts it).
  *
+ *   GET  /                                   stock dashboard (../web, static)
  *   GET  /api/health
  *   GET  /api/stock?warehouse=CTR&reorder=Y      stock status view
  *   GET  /api/items/{code}/inquiry               answered by the RPG server
@@ -20,6 +21,8 @@
  * Start:  INV_SCHEMA=DODIKIBMI2 PORT=48401 node server.js
  */
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const { URL } = require('url');
 const db = require('idb-connector');
 
@@ -28,6 +31,15 @@ const PORT = Number(process.env.PORT || 48401);
 const INQUIRY_WAIT = Number(process.env.INQUIRY_WAIT || 5); // seconds
 
 if (!/^[A-Z0-9_#$@]{1,10}$/.test(SCHEMA)) throw new Error('bad INV_SCHEMA');
+
+// the dashboard: a fixed list of files, so no path from the URL reaches the disk
+const WEB = path.join(__dirname, '..', 'web');
+const STATIC = {
+  '/': ['index.html', 'text/html; charset=utf-8'],
+  '/index.html': ['index.html', 'text/html; charset=utf-8'],
+  '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
+  '/style.css': ['style.css', 'text/css; charset=utf-8'],
+};
 
 // ---- database helpers (one connection per request: simple and safe) -------
 function connect(autocommit = true) {
@@ -107,16 +119,18 @@ async function stock(url) {
   const whs = url.searchParams.get('warehouse');
   if (whs) { where.push('STWHS = ?'); params.push(whs.toUpperCase()); }
   if (url.searchParams.get('reorder') === 'Y') where.push("REORDER = 'Y'");
-  const sql = 'SELECT TRIM(STWHS) AS "warehouse", TRIM(STITEM) AS "item",'
-    + ' TRIM(ITDESC) AS "description", STQTY AS "quantity",'
-    + ' ITMINQ AS "minimum", REORDER AS "reorder"'
+  const sql = 'SELECT TRIM(STWHS) AS "warehouse", TRIM(WHNAME) AS "warehouseName",'
+    + ' TRIM(STITEM) AS "item", TRIM(ITDESC) AS "description", STQTY AS "quantity",'
+    + ' ITMINQ AS "minimum", ITPRICE AS "price", STVALUE AS "value", REORDER AS "reorder"'
     + ' FROM STOCK_STATUS'
     + (where.length ? ' WHERE ' + where.join(' AND ') : '')
     + ' ORDER BY STWHS, STITEM';
   const conn = connect();
   try {
     const rows = await query(conn, sql, params);
-    rows.forEach((r) => { r.quantity = Number(r.quantity); r.minimum = Number(r.minimum); });
+    rows.forEach((r) => {
+      for (const k of ['quantity', 'minimum', 'price', 'value']) r[k] = Number(r[k]);
+    });
     return [200, { count: rows.length, stock: rows }];
   } finally { close(conn); }
 }
@@ -199,6 +213,14 @@ async function route(req) {
 }
 
 http.createServer((req, res) => {
+  const file = req.method === 'GET' && STATIC[req.url.split('?')[0]];
+  if (file) {
+    fs.readFile(path.join(WEB, file[0]), (err, data) => {
+      res.writeHead(err ? 404 : 200, { 'Content-Type': file[1], 'Cache-Control': 'no-cache' });
+      res.end(err ? 'not found' : data);
+    });
+    return;
+  }
   route(req)
     .then(([status, body]) => send(res, status, body))
     .catch((err) => {

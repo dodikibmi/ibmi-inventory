@@ -68,7 +68,7 @@ echo "--- Python client"
 python3.9 dtaq_client.py OF-0001 ZZ-0000
 
 echo "--- Node.js REST API on port $PORT"
-(cd node-api && INV_SCHEMA=$DTALIB PORT=$PORT node server.js > "$OUT/node-api.log" 2>&1) &
+(cd node-api && INV_SCHEMA=$DTALIB PORT=$PORT exec node server.js > "$OUT/node-api.log" 2>&1) &   # exec: $! is node itself
 NODE=$!
 sleep 3
 B=http://127.0.0.1:$PORT/api
