@@ -69,20 +69,22 @@ jobs:
           CFG
           echo "IBMI_SSH=ssh -F $D/config ibmi" >> "$GITHUB_ENV"
 
-      # PUB400 refuses more than about two SSH logins in a short time, so copy,
-      # build and tests share one SSH session (ci/ibmi-job.sh) and the logs are
-      # fetched with a second one.
+      # PUB400 refuses more than about two SSH logins in a short time, so the
+      # whole IBM i part is ONE SSH session: the source goes in as a tar on stdin,
+      # progress comes back on stderr (shown here), and the compile listings and
+      # EVFEVENT files come back as a tar on stdout at the end.
       - name: Copy the source to the IFS, build with Bob, run iRPGUnit
         run: |
-          git archive --format=tar HEAD -- iproj.json Rules.mk ci qddssrc qrpglesrc qclsrc |
-            $IBMI_SSH "rm -rf $REMOTE_DIR && mkdir -p $REMOTE_DIR && cd $REMOTE_DIR && /QOpenSys/pkgs/bin/tar xf - &&
-                       /QOpenSys/usr/bin/find . -type f -exec /QOpenSys/usr/bin/setccsid 1208 {} + &&
-                       OBJLIB=$OBJLIB DTALIB=$DTALIB RULIB=$DTALIB /QOpenSys/pkgs/bin/bash ci/ibmi-job.sh"
+          { git archive --format=tar HEAD -- iproj.json Rules.mk ci qddssrc qrpglesrc qclsrc |
+              $IBMI_SSH "rm -rf $REMOTE_DIR && mkdir -p $REMOTE_DIR && cd $REMOTE_DIR && /QOpenSys/pkgs/bin/tar xf - &&
+                         /QOpenSys/usr/bin/find . -type f -exec /QOpenSys/usr/bin/setccsid 1208 {} + &&
+                         { OBJLIB=$OBJLIB DTALIB=$DTALIB RULIB=$DTALIB /QOpenSys/pkgs/bin/bash ci/ibmi-job.sh 1>&2; rc=\$?;
+                           /QOpenSys/pkgs/bin/tar cf - .logs .evfevent 2>/dev/null; exit \$rc; }" 2>&3 |
+              tar xf -; } 3>&1
 
-      - name: Fetch compile listings and annotate errors
+      - name: Annotate compile errors, test summary
         if: always()
         run: |
-          $IBMI_SSH "cd $REMOTE_DIR && /QOpenSys/pkgs/bin/tar cf - .logs .evfevent 2>/dev/null" | tar xf - || true
           MSYS_NO_PATHCONV=1 python ci/annotate.py "$REMOTE_DIR"   # keep /home/... unconverted in Git Bash
           if [ -f .logs/rpgunit.txt ]; then
             { echo '### iRPGUnit'; echo '```'; grep -E 'Success|FAILURE|Expected|test cases' .logs/rpgunit.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

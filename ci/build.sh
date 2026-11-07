@@ -16,3 +16,7 @@ if grep -Eq "Error [0-9]+$|not remade because of errors|[1-9][0-9]* failed" .log
   grep -E "Error [0-9]+$|not remade|failed|^CPD|^CPF|RNF[0-9]{4}" .logs/build.txt
   exit 1
 fi
+# a build that created nothing proves nothing
+if grep -Eq " 0 total" .logs/build.txt; then
+  echo "::error::makei built no objects"; exit 1
+fi
