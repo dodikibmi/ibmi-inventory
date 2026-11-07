@@ -86,7 +86,7 @@ jobs:
         if: always()
         run: |
           $IBMI_SSH "cd $REMOTE_DIR && /QOpenSys/pkgs/bin/tar cf - .logs .evfevent 2>/dev/null" | tar xf - || true
-          python ci/annotate.py "$REMOTE_DIR"
+          MSYS_NO_PATHCONV=1 python ci/annotate.py "$REMOTE_DIR"   # keep /home/... unconverted in Git Bash
           if [ -f .logs/rpgunit.txt ]; then
             { echo '### iRPGUnit'; echo '```'; grep -E 'Success|FAILURE|Expected|test cases' .logs/rpgunit.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           fi
