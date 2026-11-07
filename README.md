@@ -28,6 +28,10 @@ Built and tested on [PUB400.COM](https://pub400.com) (IBM i 7.5). All data is fi
 | 12 | `POST_MOVEMENT` | SQL PL procedure | Posting rules in the database: validation, row lock, `SIGNAL SQLSTATE`, `SELECT ... FROM FINAL TABLE (INSERT ...)` |
 | 13 | `api/server.py` | Python 3.9 in PASE | **REST API** over the same tables: GET items / stock / movements, POST movements with commit / rollback and proper HTTP status codes |
 | 14 | `INV700R` | SQLRPGLE | **Outbound webhook**: reorder alert built with `LISTAGG` (one line per warehouse) + `JSON_OBJECT`, sent with `QSYS2.HTTP_POST_VERBOSE`; non-2xx status ends with an escape message |
+| 15 | `INV810R` | SQLRPGLE | **Data queue server**: stock inquiry requests on `INVREQQ` (`QRCVDTAQ`), replies on keyed `INVRPYQ` (`QSNDDTAQ`, key = request id); UTF-8 JSON parsed with `JSON_TABLE`, answered with `JSON_OBJECT` |
+| 16 | `INV820C` | CLLE | **CSV file interface**: stock export with `CPYTOIMPF` (UTF-8, header row), price list import with `CPYFRMIMPF` into a staging table, every row checked by `APPLY_PRICE_UPDATE` |
+| 17 | `INV830R` | SQLRPGLE | **XML file interface**: supplier delivery note read with `XML-INTO`, posted through `POST_MOVEMENT` as one unit of work; duplicate notes rejected; also callable as SQL procedure `POST_DELIVERY_NOTE` |
+| 18 | `integration/node-api` | Node.js in PASE | **REST API provider** with `idb-connector`: stock, POST movements (commit / rollback), and an inquiry endpoint answered by the RPG data queue server |
 
 ## Screenshots
 
@@ -187,6 +191,43 @@ CALL INV700R                     /* posts to the default https://httpbin.org/pos
 From CL, pass your own URL in a `*CHAR 200` variable (a literal on a command-line `CALL`
 is only as long as its text, and the program reads 200 bytes).
 
+## Integration
+
+How the IBM i application talks to other systems (`integration/`, `sql/04_integration.sql`).
+Everything was run on PUB400; the full output is in
+[`docs/integration-demo.txt`](docs/integration-demo.txt) (`integration/run_demo.sh`).
+
+| Pattern | Objects | Result on PUB400 |
+|---|---|---|
+| **Data queue, request / reply** | RPG server `INV810R`; clients `integration/dtaq_client.py` (Python) and the Node.js API | the same RPG program answers both; unknown item → `{"error":"item not found"}` |
+| **CSV export** | `INV820C EXPORT` → `CPYTOIMPF` from the `STOCK_STATUS` view | 33 lines, UTF-8, header row with the SQL column names |
+| **CSV import** | `INV820C IMPORT` → `CPYFRMIMPF` → `PRICE_UPDATE` → `APPLY_PRICE_UPDATE` | 3 rows applied, 2 rejected (`unknown item`, `price missing or negative`), the reason kept per row in `PRICE_UPDATE_RESULT` |
+| **XML import** | `INV830R` (`XML-INTO`) / `CALL POST_DELIVERY_NOTE(path, ?)` | good note: 3 lines posted; same note again: rejected; note with an unknown item: line 2 fails and the whole note is rolled back |
+| **REST provider (Node.js)** | `integration/node-api/server.js` | `GET /api/stock` 200, `POST /api/movements` 201, too much quantity 409 (`SQLSTATE 75006`), `GET /api/items/OF-0003/inquiry` 200 via the data queue |
+
+Data queue messages are UTF-8 JSON: the RPG fields are declared `CCSID(*UTF8)`, and the
+clients use `QSYS2.SEND_DATA_QUEUE_UTF8` / `RECEIVE_DATA_QUEUE` (`MESSAGE_DATA_UTF8`,
+`KEY_DATA` = request id, `KEY_ORDER => 'EQ'`), so no side converts the text twice.
+The reply queue is keyed so several clients can wait on it at the same time and each gets
+its own answer.
+
+```text
+Python  ──┐  {"id":"P64696-1","item":"OF-0001"}            ┌─> INVRPYQ (key P64696-1)
+          ├──────────────> INVREQQ ──> INV810R (RPG) ──────┤
+Node.js ──┘                            JSON_TABLE / SQL     └─> INVRPYQ (key NMW6K2D8Q-2)
+```
+
+```sh
+# once: data queues, staging tables, procedures
+RUNSQLSTM SRCSTMF('sql/04_integration.sql') COMMIT(*NONE) NAMING(*SQL) DECMPT(*PERIOD)
+cd integration/node-api && npm install          # idb-connector
+bash integration/run_demo.sh                    # CSV, XML, data queues, Node.js API
+```
+
+On a production system `INV810R` runs as a batch job (`SBMJOB` or an autostart job entry)
+and the Node.js API under a service manager; the demo starts both in the background of
+one PASE session and stops them at the end (`{"cmd":"stop"}`).
+
 ## Build
 
 Libraries: programs in `DODIKIBMI1`, data in `DODIKIBMI2`. Change the names to your own.
@@ -203,6 +244,7 @@ CRTJRN    JRN(DODIKIBMI2/QSQJRN) JRNRCV(DODIKIBMI2/INVRCV0001) MNGRCV(*SYSTEM) D
 RUNSQLSTM SRCSTMF('sql/01_tables.sql') COMMIT(*NONE) NAMING(*SQL) DECMPT(*PERIOD)
 RUNSQLSTM SRCSTMF('sql/02_data.sql')   COMMIT(*NONE) NAMING(*SQL) DECMPT(*PERIOD)
 RUNSQLSTM SRCSTMF('sql/03_api.sql')    COMMIT(*NONE) NAMING(*SQL) DECMPT(*PERIOD)
+RUNSQLSTM SRCSTMF('sql/04_integration.sql') COMMIT(*NONE) NAMING(*SQL) DECMPT(*PERIOD)
 ```
 
 The programs are built from the stream files with **IBM Bob** (`makei`, the open-source
@@ -215,12 +257,12 @@ is exactly what is in Git.
 
 ```sh
 # in PASE, from a clone of this repository on the IBM i
-OBJLIB=DODIKIBMI1 DTALIB=DODIKIBMI2 ci/build.sh    # makei build + failure check, 19 objects
+OBJLIB=DODIKIBMI1 DTALIB=DODIKIBMI2 ci/build.sh    # makei build + failure check, 22 objects
 OBJLIB=DODIKIBMI1 RULIB=DODIKIBMI2  ci/test.sh     # RUCRTRPG from the stream file + RUCALLTST
 ```
 
 ```text
-Objects:             0 failed 19 succeed 19 total
+Objects:             0 failed 22 succeed 22 total
 Build Successful!
 ...
 Success. 8 test cases, 24 assertions, 0 failure, 0 error.
@@ -294,20 +336,28 @@ Success. 8 test cases, 24 assertions, 0 failure, 0 error.
 - Batch jobs submitted from a user job queue do not match the batch subsystem's routing
   entries (CPC1117), so the menu prints the report in the interactive job. On a regular
   system that option would be `SBMJOB ... CALL PGM(INV400R)`.
-- A local `ibm_db` connection without a user is refused (SQL30082), so the API
-  connects with the user's credentials from environment variables. That makes it a
-  server-mode connection: the API opens it once and serves requests one at a time.
+- A local `ibm_db` connection with empty strings for user and password is refused
+  (SQL30082), so the API connects with the user's credentials from environment
+  variables. `ibm_db.connect("*LOCAL", None, None)` — `None`, not `""` — connects as the
+  user of the job without a password; the integration scripts use that.
+- `idb-connector` 1.3: `commit()` and `rollback()` of a statement run synchronously and
+  never call the callback they are given; waiting for that callback hangs the request.
+- `CLRDTAQ` is not available to users on PUB400; `QSYS2.CLEAR_DATA_QUEUE` does the same.
+- A quoted string longer than 32 characters on a command-line `CALL` is passed with its
+  own length, so `run_demo.sh` pads the IFS path to the 200 bytes `INV820C` declares.
 - `ibm_db.callproc` sizes an OUT parameter buffer from its initial value and does not
   clear the rest after the returned digits, so the OUT parameters start as blanks.
 
 ## Repository layout
 
 ```text
-sql/         01_tables.sql, 02_data.sql, 03_api.sql (procedure POST_MOVEMENT)
+sql/         01_tables.sql, 02_data.sql, 03_api.sql (procedure POST_MOVEMENT),
+             04_integration.sql (data queues, CSV staging, POST_DELIVERY_NOTE)
 api/         server.py (REST API), start_api.sh, test_api.sh
+integration/ node-api/ (Node.js REST API), dtaq_client.py, run_demo.sh, samples/
 qddssrc/     display files (*.dspf) and printer file (*.prtf)
 qrpglesrc/   RPGLE / SQLRPGLE programs, DATEUTIL module, copybook, binder source, tests
-qclsrc/      main menu (CLLE)
+qclsrc/      main menu, CSV interface (CLLE)
 docs/        sample output, screenshots/
 ```
 

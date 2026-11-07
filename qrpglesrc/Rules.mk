@@ -20,3 +20,7 @@ INV400R.PGM: inv400r.sqlrpgle INV400P.FILE
 INV500R.PGM: inv500r.sqlrpgle
 INV600R.PGM: inv600r.sqlrpgle
 INV700R.PGM: inv700r.sqlrpgle
+
+# Integration (P4): data queue server, XML delivery note
+INV810R.PGM: inv810r.sqlrpgle
+INV830R.PGM: inv830r.sqlrpgle

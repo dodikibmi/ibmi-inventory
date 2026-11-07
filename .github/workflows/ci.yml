@@ -26,7 +26,11 @@ jobs:
       - name: Source checks (ci/lint.py)
         run: python3 ci/lint.py
       - name: Shell scripts (shellcheck)
-        run: shellcheck ci/*.sh api/*.sh
+        run: shellcheck ci/*.sh api/*.sh integration/*.sh
+      - name: Python and Node.js syntax
+        run: |
+          python3 -m py_compile api/server.py integration/dtaq_client.py
+          node --check integration/node-api/server.js
 
   build-and-test:
     needs: lint

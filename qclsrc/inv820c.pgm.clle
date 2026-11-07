@@ -1,0 +1,67 @@
+/* ================================================================ */
+/* INV820C - CSV file interface                                     */
+/*                                                                  */
+/* EXPORT: stock status (view STOCK_STATUS) to a CSV stream file    */
+/*         in the IFS, UTF-8, header row with the SQL column names, */
+/*         for Excel, a BI tool or a partner's SFTP pickup.         */
+/* IMPORT: price list CSV from a partner (item,price,minimum) into  */
+/*         staging table PRICE_UPDATE, then procedure               */
+/*         APPLY_PRICE_UPDATE checks every row and updates the item */
+/*         master with the good ones. The result per row is in      */
+/*         PRICE_UPDATE_RESULT (OK or the reason it was rejected).  */
+/*                                                                  */
+/* Parameters: &ACTION *CHAR 10 (EXPORT/IMPORT), &PATH *CHAR 200.   */
+/* Ends with CPF9898 escape message on error.                       */
+/* ================================================================ */
+             PGM        PARM(&ACTION &PATH)
+
+             DCL        VAR(&ACTION) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PATH)   TYPE(*CHAR) LEN(200)
+             DCL        VAR(&MSG)    TYPE(*CHAR) LEN(256)
+
+             ADDLIBLE   LIB(DODIKIBMI2)
+             MONMSG     MSGID(CPF2103) /* already in the library list */
+
+             IF         COND(&ACTION *EQ 'EXPORT') THEN(DO)
+             CPYTOIMPF  FROMFILE(*LIBL/INVSTKV) TOSTMF(&PATH) +
+                          MBROPT(*REPLACE) STMFCCSID(1208) +
+                          RCDDLM(*LF) DTAFMT(*DLM) STRDLM(*DBLQUOTE) +
+                          RMVBLANK(*TRAILING) FLDDLM(',') +
+                          DECPNT(*PERIOD) ADDCOLNAM(*SQL)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             CHGVAR     VAR(&MSG) VALUE('CSV export failed: ' *CAT &PATH)
+             GOTO       CMDLBL(ERROR)
+             ENDDO
+             SNDPGMMSG  MSGID(CPF9897) MSGF(QCPFMSG) +
+                          MSGDTA('Stock exported to' *BCAT &PATH) +
+                          MSGTYPE(*COMP)
+             RETURN
+             ENDDO
+
+             IF         COND(&ACTION *EQ 'IMPORT') THEN(DO)
+             CPYFRMIMPF FROMSTMF(&PATH) TOFILE(*LIBL/INVPRCU) +
+                          MBROPT(*REPLACE) RCDDLM(*ALL) DTAFMT(*DLM) +
+                          STRDLM(*DBLQUOTE) FLDDLM(',') +
+                          DECPNT(*PERIOD) RMVCOLNAM(*YES) +
+                          ERRLVL(*NOMAX)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             CHGVAR     VAR(&MSG) VALUE('CSV import failed: ' *CAT &PATH)
+             GOTO       CMDLBL(ERROR)
+             ENDDO
+             RUNSQL     SQL('CALL APPLY_PRICE_UPDATE()') +
+                          COMMIT(*NONE) NAMING(*SYS)
+             MONMSG     MSGID(CPF0000 SQL9010) EXEC(DO)
+             CHGVAR     VAR(&MSG) VALUE('APPLY_PRICE_UPDATE failed')
+             GOTO       CMDLBL(ERROR)
+             ENDDO
+             SNDPGMMSG  MSGID(CPF9897) MSGF(QCPFMSG) +
+                          MSGDTA('Price list imported, see +
+                          PRICE_UPDATE_RESULT') MSGTYPE(*COMP)
+             RETURN
+             ENDDO
+
+             CHGVAR     VAR(&MSG) VALUE('ACTION must be EXPORT or IMPORT')
+
+ ERROR:      SNDPGMMSG  MSGID(CPF9898) MSGF(QCPFMSG) MSGDTA(&MSG) +
+                          MSGTYPE(*ESCAPE)
+             ENDPGM

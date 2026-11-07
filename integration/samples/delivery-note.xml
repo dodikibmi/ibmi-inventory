@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fictional supplier delivery note: posted as goods in by INV830R -->
+<deliveryNote number="DN-2026-0042" supplier="Nusantara Office Supply"
+              date="2026-11-07" warehouse="CTR">
+  <line item="OF-0001" quantity="40"/>
+  <line item="OF-0002" quantity="24"/>
+  <line item="EL-0001" quantity="10"/>
+</deliveryNote>

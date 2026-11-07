@@ -11,3 +11,7 @@ desktop.ini
 # IBM i build output (Bob)
 .logs/
 .evfevent/
+
+# Node.js
+node_modules/
+package-lock.json

@@ -1,0 +1,168 @@
+=== 1. CSV export: stock status to /home/DODIKIBMI/ci/ibmi-inventory/integration/out/stock.csv
+CPF9897: Stock exported to /home/DODIKIBMI/ci/ibmi-inventory/integration/out/stock.csv
+STWHS,WHNAME,STITEM,ITDESC,ITCATG,ITUOM,STQTY,ITMINQ,ITPRICE,STVALUE,REORDER,STLSTD
+"CTR","Central Warehouse","OF-0001","A4 COPY PAPER 80GSM (REAM)","OFFC","RIM",320,50,52000.00,16640000.00,"N","2026-11-07"
+"EST","East Distribution Hub","OF-0001","A4 COPY PAPER 80GSM (REAM)","OFFC","RIM",140,50,52000.00,7280000.00,"N","2026-09-18"
+"WST","West Distribution Hub","OF-0001","A4 COPY PAPER 80GSM (REAM)","OFFC","RIM",35,50,52000.00,1820000.00,"Y","2026-09-15"
+"CTR","Central Warehouse","OF-0002","BALLPOINT PEN BLUE (BOX OF 12)","OFFC","BOX",120,30,24000.00,2880000.00,"N","2026-11-07"
+... 33 lines
+
+=== 2. CSV import: samples/price-update.csv (3 good rows, 2 rejected)
+CPF9897: Price list imported, see PRICE_UPDATE_RESULT
+{"PRITEM": "OF-0001", "PRPRICE": "53500.00", "PRMINQ": "60", "PRRESULT": "OK"}
+{"PRITEM": "OF-0002", "PRPRICE": "24500.00", "PRMINQ": null, "PRRESULT": "OK"}
+{"PRITEM": "XX-9999", "PRPRICE": "1000.00", "PRMINQ": "5", "PRRESULT": "unknown item"}
+{"PRITEM": "OF-0003", "PRPRICE": "-1.00", "PRMINQ": "10", "PRRESULT": "price missing or negative"}
+{"PRITEM": "EL-0001", "PRPRICE": "91000.00", "PRMINQ": "20", "PRRESULT": "OK"}
+{"ITITEM": "EL-0001", "ITPRICE": "91000.00", "ITMINQ": "20"}
+{"ITITEM": "OF-0001", "ITPRICE": "53500.00", "ITMINQ": "60"}
+{"ITITEM": "OF-0002", "ITPRICE": "24500.00", "ITMINQ": "30"}
+
+=== 3. XML delivery note: good note, the same note again, a bad note
+{"STITEM": "EL-0001", "STQTY": "75"}
+{"STITEM": "OF-0001", "STQTY": "320"}
+{"STITEM": "OF-0002", "STQTY": "120"}
+{"STITEM": "OF-0003", "STQTY": "18"}
+delivery-note.xml -> OK note DN-2026-0042, 3 lines posted
+delivery-note.xml -> ERROR note DN-2026-0042 already posted
+delivery-note-bad.xml -> ERROR line 2 XX-9999: Item does not exist or is inactive
+{"STITEM": "EL-0001", "STQTY": "85"}
+{"STITEM": "OF-0001", "STQTY": "360"}
+{"STITEM": "OF-0002", "STQTY": "144"}
+{"STITEM": "OF-0003", "STQTY": "18"}
+
+=== 4. Data queues: RPG server INV810R, clients in Python and Node.js
+--- Python client
+{
+  "id": "P65249-1",
+  "item": "OF-0001",
+  "description": "A4 COPY PAPER 80GSM (REAM)",
+  "unit": "RIM",
+  "minimum": 60,
+  "stock": [
+    {
+      "warehouse": "CTR",
+      "quantity": 360,
+      "reorder": "N"
+    },
+    {
+      "warehouse": "EST",
+      "quantity": 140,
+      "reorder": "N"
+    },
+    {
+      "warehouse": "WST",
+      "quantity": 35,
+      "reorder": "Y"
+    }
+  ]
+}
+{
+  "id": "P65249-2",
+  "item": "ZZ-0000",
+  "error": "item not found"
+}
+--- Node.js REST API on port 48401
+
+>>> http://127.0.0.1:48401/api/health
+{
+  "status": "ok",
+  "runtime": "node v18.20.8",
+  "db": "PUB400",
+  "user": "DODIKIBMI",
+  "schema": "DODIKIBMI2"
+}
+<<< HTTP 200
+
+>>> http://127.0.0.1:48401/api/stock?warehouse=WST&reorder=Y
+{
+  "count": 4,
+  "stock": [
+    {
+      "warehouse": "WST",
+      "item": "CL-0001",
+      "description": "FLOOR CLEANER 5L1",
+      "quantity": 8,
+      "minimum": 12,
+      "reorder": "Y"
+    },
+    {
+      "warehouse": "WST",
+      "item": "OF-0001",
+      "description": "A4 COPY PAPER 80GSM (REAM)",
+      "quantity": 35,
+      "minimum": 60,
+      "reorder": "Y"
+    },
+    {
+      "warehouse": "WST",
+      "item": "PK-0001",
+      "description": "CARTON BOX 40X30X30",
+      "quantity": 95,
+      "minimum": 100,
+      "reorder": "Y"
+    },
+    {
+      "warehouse": "WST",
+      "item": "PK-0003",
+      "description": "PACKING TAPE CLEAR 48MM",
+      "quantity": 44,
+      "minimum": 60,
+      "reorder": "Y"
+    }
+  ]
+}
+<<< HTTP 200
+
+>>> http://127.0.0.1:48401/api/items/OF-0003/inquiry
+{
+  "id": "NMW6K4PU9-3",
+  "item": "OF-0003",
+  "description": "STAPLER HEAVY DUTY",
+  "unit": "PCS",
+  "minimum": 10,
+  "stock": [
+    {
+      "warehouse": "CTR",
+      "quantity": 18,
+      "reorder": "N"
+    }
+  ]
+}
+<<< HTTP 200
+
+>>> -X POST http://127.0.0.1:48401/api/movements -H Content-Type: application/json -d {"type":"O","item":"OF-0003","warehouse":"CTR","quantity":2,"reference":"NODE-DEMO"}
+{
+  "movement": 31,
+  "newQuantity": 16
+}
+<<< HTTP 201
+
+>>> -X POST http://127.0.0.1:48401/api/movements -H Content-Type: application/json -d {"type":"O","item":"OF-0003","warehouse":"CTR","quantity":99999,"reference":"NODE-DEMO"}
+{
+  "error": "Message Insufficient stock for this movement returned from SIGNAL, RESIGNAL, or RAISE_ERROR.",
+  "sqlstate": "75006"
+}
+<<< HTTP 409
+
+>>> http://127.0.0.1:48401/api/items/OF-0003/inquiry
+{
+  "id": "NMW6K4SJ8-4",
+  "item": "OF-0003",
+  "description": "STAPLER HEAVY DUTY",
+  "unit": "PCS",
+  "minimum": 10,
+  "stock": [
+    {
+      "warehouse": "CTR",
+      "quantity": 16,
+      "reorder": "N"
+    }
+  ]
+}
+<<< HTTP 200
+
+--- stop
+stop sent
+INV810R ended (rc 0)
+Node.js API stopped

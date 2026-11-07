@@ -1,0 +1,17 @@
+{
+  "name": "ibmi-inventory-node-api",
+  "version": "1.0.0",
+  "description": "REST API provider for the IBM i warehouse inventory, Node.js in PASE",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "idb-connector": "^1.3.0"
+  },
+  "license": "SEE LICENSE IN ../../LICENSE"
+}

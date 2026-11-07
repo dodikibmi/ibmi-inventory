@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Second line has an unknown item: the whole note must be rolled back -->
+<deliveryNote number="DN-2026-0043" supplier="Nusantara Office Supply"
+              date="2026-11-07" warehouse="CTR">
+  <line item="OF-0003" quantity="5"/>
+  <line item="XX-9999" quantity="1"/>
+</deliveryNote>
