@@ -31,7 +31,15 @@ jobs:
   build-and-test:
     needs: lint
     if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    # Self-hosted runner (label "ibmi") on a PC that can reach the IBM i: PUB400
+    # closes SSH connections from GitHub-hosted (cloud) runners before login,
+    # the same way a company IBM i sits behind its firewall. Only a manual
+    # "Run workflow" (repository write access) sends a job to this runner;
+    # pull requests from forks get the lint job on a GitHub-hosted runner only.
+    runs-on: [self-hosted, ibmi]
+    defaults:
+      run:
+        shell: bash
     concurrency: pub400            # one build at a time on the shared library
     timeout-minutes: 30
     steps:
@@ -41,45 +49,51 @@ jobs:
         env:
           SSH_KEY: ${{ secrets.IBMI_SSH_KEY }}
         run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/ibmi && chmod 600 ~/.ssh/ibmi
+          # key and config live in this job's temp directory, not in ~/.ssh
+          D="$(cd "$RUNNER_TEMP" && pwd)/ibmi-ssh"
+          rm -rf "$D" && mkdir -p "$D" && chmod 700 "$D"
+          printf '%s\n' "$SSH_KEY" > "$D/key" && chmod 600 "$D/key"
           # PUB400 host key, pinned (no trust-on-first-use in CI)
-          echo '[pub400.com]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP9bBRME9Px9aBJ4nujQzpcz9DDAmBkkaL8N7gRWqqtT' > ~/.ssh/known_hosts
-          cat > ~/.ssh/config <<CFG
+          echo '[pub400.com]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP9bBRME9Px9aBJ4nujQzpcz9DDAmBkkaL8N7gRWqqtT' > "$D/known_hosts"
+          cat > "$D/config" <<CFG
           Host ibmi
             HostName $IBMI_HOST
             Port $IBMI_PORT
             User $IBMI_USER
-            IdentityFile ~/.ssh/ibmi
+            IdentityFile $D/key
+            IdentitiesOnly yes
+            UserKnownHostsFile $D/known_hosts
             StrictHostKeyChecking yes
+            BatchMode yes
             ServerAliveInterval 30
-            # one TCP connection for all steps: PUB400 drops bursts of new SSH logins
-            ControlMaster auto
-            ControlPath ~/.ssh/cm-%r@%h-%p
-            ControlPersist 20m
           CFG
-          ssh ibmi true   # open the shared connection
+          echo "IBMI_SSH=ssh -F $D/config ibmi" >> "$GITHUB_ENV"
+          ssh -F "$D/config" ibmi true
 
       - name: Copy the source to the IFS
         run: |
           git archive --format=tar HEAD -- iproj.json Rules.mk ci qddssrc qrpglesrc qclsrc |
-            ssh ibmi "rm -rf $REMOTE_DIR && mkdir -p $REMOTE_DIR && cd $REMOTE_DIR && /QOpenSys/pkgs/bin/tar xf - &&
+            $IBMI_SSH "rm -rf $REMOTE_DIR && mkdir -p $REMOTE_DIR && cd $REMOTE_DIR && /QOpenSys/pkgs/bin/tar xf - &&
                       /QOpenSys/usr/bin/find . -type f -exec /QOpenSys/usr/bin/setccsid 1208 {} +"
 
       - name: Build with Bob (makei)
-        run: ssh ibmi "cd $REMOTE_DIR && OBJLIB=$OBJLIB DTALIB=$DTALIB /QOpenSys/pkgs/bin/bash ci/build.sh"
+        run: $IBMI_SSH "cd $REMOTE_DIR && OBJLIB=$OBJLIB DTALIB=$DTALIB /QOpenSys/pkgs/bin/bash ci/build.sh"
 
       - name: Unit tests (iRPGUnit)
-        run: ssh ibmi "cd $REMOTE_DIR && OBJLIB=$OBJLIB RULIB=$DTALIB /QOpenSys/pkgs/bin/bash ci/test.sh"
+        run: $IBMI_SSH "cd $REMOTE_DIR && OBJLIB=$OBJLIB RULIB=$DTALIB /QOpenSys/pkgs/bin/bash ci/test.sh"
 
       - name: Fetch compile listings and annotate errors
         if: always()
         run: |
-          ssh ibmi "cd $REMOTE_DIR && /QOpenSys/pkgs/bin/tar cf - .logs .evfevent 2>/dev/null" | tar xf - || true
-          python3 ci/annotate.py "$REMOTE_DIR"
+          $IBMI_SSH "cd $REMOTE_DIR && /QOpenSys/pkgs/bin/tar cf - .logs .evfevent 2>/dev/null" | tar xf - || true
+          python ci/annotate.py "$REMOTE_DIR"
           if [ -f .logs/rpgunit.txt ]; then
             { echo '### iRPGUnit'; echo '```'; grep -E 'Success|FAILURE|Expected|test cases' .logs/rpgunit.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Remove the key from the runner
+        if: always()
+        run: rm -rf "$(cd "$RUNNER_TEMP" && pwd)/ibmi-ssh"
 
       - uses: actions/upload-artifact@v4
         if: always()
