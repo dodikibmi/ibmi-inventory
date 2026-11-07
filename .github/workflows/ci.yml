@@ -53,7 +53,12 @@ jobs:
             IdentityFile ~/.ssh/ibmi
             StrictHostKeyChecking yes
             ServerAliveInterval 30
+            # one TCP connection for all steps: PUB400 drops bursts of new SSH logins
+            ControlMaster auto
+            ControlPath ~/.ssh/cm-%r@%h-%p
+            ControlPersist 20m
           CFG
+          ssh ibmi true   # open the shared connection
 
       - name: Copy the source to the IFS
         run: |
