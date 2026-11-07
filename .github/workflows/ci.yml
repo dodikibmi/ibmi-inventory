@@ -68,19 +68,16 @@ jobs:
             ServerAliveInterval 30
           CFG
           echo "IBMI_SSH=ssh -F $D/config ibmi" >> "$GITHUB_ENV"
-          ssh -F "$D/config" ibmi true
 
-      - name: Copy the source to the IFS
+      # PUB400 refuses more than about two SSH logins in a short time, so copy,
+      # build and tests share one SSH session (ci/ibmi-job.sh) and the logs are
+      # fetched with a second one.
+      - name: Copy the source to the IFS, build with Bob, run iRPGUnit
         run: |
           git archive --format=tar HEAD -- iproj.json Rules.mk ci qddssrc qrpglesrc qclsrc |
             $IBMI_SSH "rm -rf $REMOTE_DIR && mkdir -p $REMOTE_DIR && cd $REMOTE_DIR && /QOpenSys/pkgs/bin/tar xf - &&
-                      /QOpenSys/usr/bin/find . -type f -exec /QOpenSys/usr/bin/setccsid 1208 {} +"
-
-      - name: Build with Bob (makei)
-        run: $IBMI_SSH "cd $REMOTE_DIR && OBJLIB=$OBJLIB DTALIB=$DTALIB /QOpenSys/pkgs/bin/bash ci/build.sh"
-
-      - name: Unit tests (iRPGUnit)
-        run: $IBMI_SSH "cd $REMOTE_DIR && OBJLIB=$OBJLIB RULIB=$DTALIB /QOpenSys/pkgs/bin/bash ci/test.sh"
+                       /QOpenSys/usr/bin/find . -type f -exec /QOpenSys/usr/bin/setccsid 1208 {} + &&
+                       OBJLIB=$OBJLIB DTALIB=$DTALIB RULIB=$DTALIB /QOpenSys/pkgs/bin/bash ci/ibmi-job.sh"
 
       - name: Fetch compile listings and annotate errors
         if: always()

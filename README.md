@@ -235,7 +235,7 @@ Then `CALL INVMENU`.
 | Job | Runs | What it does |
 |---|---|---|
 | `lint` | every push and pull request, on the GitHub runner | [`ci/lint.py`](ci/lint.py): no library-qualified `/COPY`, no tabs, fixed-format lines within 80 columns, every program an ILE program (`DFTACTGRP(*NO)`), `Rules.mk` and the source tree agree. `shellcheck` on the shell scripts. |
-| `build-and-test` | on demand (*Run workflow*), on a **self-hosted runner** that can reach the IBM i | Over SSH to the IBM i: copies the commit to the IFS (`git archive` piped to `tar`, files tagged CCSID 1208), runs `ci/build.sh` and `ci/test.sh`, fetches the compile listings as a build artifact and turns the compiler's EVFEVENT records into **annotations on the failing source lines** ([`ci/annotate.py`](ci/annotate.py)). |
+| `build-and-test` | on demand (*Run workflow*), on a **self-hosted runner** that can reach the IBM i | Over SSH to the IBM i: copies the commit to the IFS (`git archive` piped to `tar`, files tagged CCSID 1208), runs `ci/build.sh` and `ci/test.sh` (through `ci/ibmi-job.sh`, in one SSH session), fetches the compile listings as a build artifact and turns the compiler's EVFEVENT records into **annotations on the failing source lines** ([`ci/annotate.py`](ci/annotate.py)). |
 
 Points that matter on IBM i:
 
@@ -246,6 +246,9 @@ Points that matter on IBM i:
   `IBMI_SSH_KEY`; the host key of the IBM i is pinned in the workflow.
 - The target is the shared public system PUB400, so the IBM i job runs on demand and
   one at a time (`concurrency`), not on every push.
+- PUB400 refuses more than about two SSH logins in a short time, so copy, build and
+  tests share one SSH session; `ci/ibmi-job.sh` prints `::group::` workflow commands,
+  so build and tests still show as separate sections of the job log.
 - PUB400 closes SSH connections from GitHub-hosted (cloud) runners before login, just
   as a company IBM i is reachable only from inside its network. The IBM i job therefore
   runs on a self-hosted runner (label `ibmi`) on a machine that can reach the system;
