@@ -9,7 +9,7 @@
       * ------------------------------------------------------------
      FINVHOL1   IF   E           K DISK    USROPN
       *
-      /COPY DODIKIBMI1/QRPGLESRC,DATEUTILPR
+      /COPY dateutilpr.rpgleinc
       * ------------------------------------------------------------
      PDateMonthBeg     B                   EXPORT
      D  DateMonthBeg   PI              D

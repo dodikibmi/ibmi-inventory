@@ -1,0 +1,11 @@
+{
+  "description": "IBM i Warehouse Inventory",
+  "version": "1.1.0",
+  "objlib": "&OBJLIB",
+  "curlib": "&OBJLIB",
+  "preUsrlibl": ["&DTALIB"],
+  "includePath": ["qrpglesrc"],
+  "tgtCcsid": "*JOB",
+  "buildCommand": "makei build",
+  "compileCommand": "makei compile -f {filename}"
+}

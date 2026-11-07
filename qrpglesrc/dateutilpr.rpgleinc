@@ -1,6 +1,6 @@
       * ------------------------------------------------------------
       * DATEUTILPR - prototypes of service program DATEUTIL
-      * Copy into every caller:  /COPY DODIKIBMI1/QRPGLESRC,DATEUTILPR
+      * Copy into every caller:  /COPY dateutilpr.rpgleinc
       * and bind with BNDDIR('INVENTORY').
       * ------------------------------------------------------------
       /IF DEFINED(DATEUTILPR)

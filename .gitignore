@@ -7,3 +7,7 @@ __pycache__/
 .idea/
 Thumbs.db
 desktop.ini
+
+# IBM i build output (Bob)
+.logs/
+.evfevent/

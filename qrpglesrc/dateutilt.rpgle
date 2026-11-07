@@ -3,13 +3,13 @@
       * DATEUTILT - RPGUnit test suite for service program DATEUTIL
       * Every exported procedure named test... is one test case.
       * Holiday tests use the sample row 2026-08-17 (Monday).
-      * Build: RUCRTRPG TSTPGM(DODIKIBMI1/DATEUTILT)
-      *          SRCFILE(DODIKIBMI1/QRPGLESRC) SRCMBR(DATEUTILT)
-      *          BNDSRVPGM(DODIKIBMI1/DATEUTIL)
+      * Build: ci/test.sh (RUCRTRPG TSTPGM(DODIKIBMI1/DATEUTILT)
+      *          SRCSTMF('.../qrpglesrc/dateutilt.rpgle')
+      *          BNDSRVPGM((DODIKIBMI1/DATEUTIL)) TGTCCSID(*JOB))
       * Run:   RUCALLTST TSTPGM(DODIKIBMI1/DATEUTILT)
       * ------------------------------------------------------------
       /COPY DODIKIBMI2/QINCLUDE,TESTCASE
-      /COPY DODIKIBMI1/QRPGLESRC,DATEUTILPR
+      /COPY dateutilpr.rpgleinc
       * ------------------------------------------------------------
      PtestMonthBeg     B                   EXPORT
      D  testMonthBeg   PI

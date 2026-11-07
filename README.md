@@ -1,5 +1,7 @@
 # IBM i Warehouse Inventory
 
+[![IBM i CI](https://github.com/dodikibmi/ibmi-inventory/actions/workflows/ci.yml/badge.svg)](https://github.com/dodikibmi/ibmi-inventory/actions/workflows/ci.yml)
+
 A complete green-screen inventory application for IBM i, written in RPG IV (hybrid
 free-format), Db2 for i SQL, DDS and CL. It covers the programs a typical IBM i shop
 maintains every day — master-file maintenance, subfiles, a transaction with commitment
@@ -187,52 +189,66 @@ is only as long as its text, and the program reads 200 bytes).
 
 ## Build
 
-Libraries: source and programs in `DODIKIBMI1`, data in `DODIKIBMI2`. Change the names
-to your own. [iRPGUnit](https://github.com/tools-400/irpgunit) is needed only for the
-test suite.
+Libraries: programs in `DODIKIBMI1`, data in `DODIKIBMI2`. Change the names to your own.
+[iRPGUnit](https://github.com/tools-400/irpgunit) is needed only for the test suite.
+
+The database is created once (it holds data, so the pipeline does not recreate it):
 
 ```text
-/* 1. Journal first: tables created in a library with QSQJRN are journaled */
+/* Journal first: tables created in a library with QSQJRN are journaled */
 CRTJRNRCV JRNRCV(DODIKIBMI2/INVRCV0001)
 CRTJRN    JRN(DODIKIBMI2/QSQJRN) JRNRCV(DODIKIBMI2/INVRCV0001) MNGRCV(*SYSTEM) DLTRCV(*YES)
 
-/* 2. Database and sample data (stream files in the IFS)                   */
+/* Tables, sample data, SQL procedure (stream files in the IFS) */
 RUNSQLSTM SRCSTMF('sql/01_tables.sql') COMMIT(*NONE) NAMING(*SQL) DECMPT(*PERIOD)
 RUNSQLSTM SRCSTMF('sql/02_data.sql')   COMMIT(*NONE) NAMING(*SQL) DECMPT(*PERIOD)
 RUNSQLSTM SRCSTMF('sql/03_api.sql')    COMMIT(*NONE) NAMING(*SQL) DECMPT(*PERIOD)
-
-/* 3. Service program, binding directory and its unit tests                */
-CRTRPGMOD  MODULE(DATEUTIL) SRCFILE(QRPGLESRC)
-CRTSRVPGM  SRVPGM(DATEUTIL) EXPORT(*SRCFILE) SRCFILE(QRPGLESRC) SRCMBR(DATEUTILB)
-CRTBNDDIR  BNDDIR(INVENTORY)
-ADDBNDDIRE BNDDIR(INVENTORY) OBJ((DATEUTIL *SRVPGM))
-RUCRTRPG   TSTPGM(DATEUTILT) SRCFILE(QRPGLESRC) BNDSRVPGM(DATEUTIL)
-RUCALLTST  TSTPGM(DATEUTILT)
-
-/* 4. Display and printer files before the programs that use them          */
-CRTDSPF FILE(INV100D) SRCFILE(QDDSSRC)
-CRTDSPF FILE(INV110D) SRCFILE(QDDSSRC)
-CRTDSPF FILE(INV200D) SRCFILE(QDDSSRC)
-CRTDSPF FILE(INV300D) SRCFILE(QDDSSRC)
-CRTDSPF FILE(INV900D) SRCFILE(QDDSSRC)
-CRTDSPF FILE(INVMNUD) SRCFILE(QDDSSRC)
-CRTPRTF FILE(INV400P) SRCFILE(QDDSSRC) PAGESIZE(66 132) OVRFLW(60)
-
-/* 5. Programs                                                             */
-CRTBNDRPG  PGM(INV900R) SRCFILE(QRPGLESRC)
-CRTBNDRPG  PGM(INV110R) SRCFILE(QRPGLESRC)
-CRTBNDRPG  PGM(INV100R) SRCFILE(QRPGLESRC)
-CRTBNDRPG  PGM(INV200R) SRCFILE(QRPGLESRC)
-CRTBNDRPG  PGM(INV300R) SRCFILE(QRPGLESRC)
-CRTSQLRPGI OBJ(INV400R) SRCFILE(QRPGLESRC) COMMIT(*NONE)
-CRTSQLRPGI OBJ(INV500R) SRCFILE(QRPGLESRC) COMMIT(*NONE)
-CRTSQLRPGI OBJ(INV600R) SRCFILE(QRPGLESRC) COMMIT(*NONE)
-CRTSQLRPGI OBJ(INV700R) SRCFILE(QRPGLESRC) COMMIT(*NONE)
-CRTBNDCL   PGM(INVMENU) SRCFILE(QCLSRC)
-
-/* 6. Run                                                                  */
-CALL INVMENU
 ```
+
+The programs are built from the stream files with **IBM Bob** (`makei`, the open-source
+build tool for IBM i, in `/QOpenSys/pkgs/bin`). `iproj.json` sets the object library and
+library list; each source directory has a `Rules.mk` with one line per object and its
+dependencies, so Bob builds them in the right order (display files, then the
+`DATEUTIL` module and service program, the `INVENTORY` binding directory, then the
+programs). Copybooks are stream files too (`/COPY dateutilpr.rpgleinc`): what is built
+is exactly what is in Git.
+
+```sh
+# in PASE, from a clone of this repository on the IBM i
+OBJLIB=DODIKIBMI1 DTALIB=DODIKIBMI2 ci/build.sh    # makei build + failure check, 19 objects
+OBJLIB=DODIKIBMI1 RULIB=DODIKIBMI2  ci/test.sh     # RUCRTRPG from the stream file + RUCALLTST
+```
+
+```text
+Objects:             0 failed 19 succeed 19 total
+Build Successful!
+...
+Success. 8 test cases, 24 assertions, 0 failure, 0 error.
+```
+
+Then `CALL INVMENU`.
+
+## Continuous integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) (GitHub Actions):
+
+| Job | Runs | What it does |
+|---|---|---|
+| `lint` | every push and pull request, on the GitHub runner | [`ci/lint.py`](ci/lint.py): no library-qualified `/COPY`, no tabs, fixed-format lines within 80 columns, every program an ILE program (`DFTACTGRP(*NO)`), `Rules.mk` and the source tree agree. `shellcheck` on the shell scripts. |
+| `build-and-test` | on demand (*Run workflow*) | Over SSH to the IBM i: copies the commit to the IFS (`git archive` piped to `tar`, files tagged CCSID 1208), runs `ci/build.sh` and `ci/test.sh`, fetches the compile listings as a build artifact and turns the compiler's EVFEVENT records into **annotations on the failing source lines** ([`ci/annotate.py`](ci/annotate.py)). |
+
+Points that matter on IBM i:
+
+- `makei` can print *Build Successful* with exit code 0 when make stopped before a
+  target (a target that was never attempted is not counted as failed), so
+  `ci/build.sh` also checks make's own error lines.
+- The SSH key is a dedicated key for this pipeline only, stored as the secret
+  `IBMI_SSH_KEY`; the host key of the IBM i is pinned in the workflow.
+- The target is the shared public system PUB400, so the IBM i job runs on demand and
+  one at a time (`concurrency`), not on every push.
+- Checked both ways: a compile error (`RNF7030`) makes the build job fail, and a wrong
+  expected value in `DATEUTILT` makes the test job fail
+  (`FAILURE. 8 test cases, 23 assertions, 1 failure`).
 
 ## Sample output
 

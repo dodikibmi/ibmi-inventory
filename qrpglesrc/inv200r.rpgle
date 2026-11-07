@@ -21,7 +21,7 @@
      FINVSTK1   UF A E           K DISK    COMMIT USROPN
      FINVMOV1   IF A E           K DISK    COMMIT USROPN
       *
-      /COPY DODIKIBMI1/QRPGLESRC,DATEUTILPR
+      /COPY dateutilpr.rpgleinc
       *
      DPSDS            SDS
      D  psPgm                  1     10

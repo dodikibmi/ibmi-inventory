@@ -1,0 +1,87 @@
+name: IBM i CI
+
+# Lint runs on every push and pull request (no IBM i needed).
+# Build + unit tests run on the IBM i over SSH. The target is the free public
+# system PUB400, so they run on demand (Actions -> IBM i CI -> Run workflow)
+# instead of on every push.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  IBMI_HOST: pub400.com
+  IBMI_PORT: "2222"
+  IBMI_USER: DODIKIBMI
+  OBJLIB: DODIKIBMI1        # programs
+  DTALIB: DODIKIBMI2        # tables (created once from sql/), iRPGUnit
+  REMOTE_DIR: /home/DODIKIBMI/ci/ibmi-inventory
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Source checks (ci/lint.py)
+        run: python3 ci/lint.py
+      - name: Shell scripts (shellcheck)
+        run: shellcheck ci/*.sh api/*.sh
+
+  build-and-test:
+    needs: lint
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    concurrency: pub400            # one build at a time on the shared library
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SSH key for the IBM i
+        env:
+          SSH_KEY: ${{ secrets.IBMI_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/ibmi && chmod 600 ~/.ssh/ibmi
+          # PUB400 host key, pinned (no trust-on-first-use in CI)
+          echo '[pub400.com]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP9bBRME9Px9aBJ4nujQzpcz9DDAmBkkaL8N7gRWqqtT' > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<CFG
+          Host ibmi
+            HostName $IBMI_HOST
+            Port $IBMI_PORT
+            User $IBMI_USER
+            IdentityFile ~/.ssh/ibmi
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+          CFG
+
+      - name: Copy the source to the IFS
+        run: |
+          git archive --format=tar HEAD -- iproj.json Rules.mk ci qddssrc qrpglesrc qclsrc |
+            ssh ibmi "rm -rf $REMOTE_DIR && mkdir -p $REMOTE_DIR && cd $REMOTE_DIR && /QOpenSys/pkgs/bin/tar xf - &&
+                      /QOpenSys/usr/bin/find . -type f -exec /QOpenSys/usr/bin/setccsid 1208 {} +"
+
+      - name: Build with Bob (makei)
+        run: ssh ibmi "cd $REMOTE_DIR && OBJLIB=$OBJLIB DTALIB=$DTALIB /QOpenSys/pkgs/bin/bash ci/build.sh"
+
+      - name: Unit tests (iRPGUnit)
+        run: ssh ibmi "cd $REMOTE_DIR && OBJLIB=$OBJLIB RULIB=$DTALIB /QOpenSys/pkgs/bin/bash ci/test.sh"
+
+      - name: Fetch compile listings and annotate errors
+        if: always()
+        run: |
+          ssh ibmi "cd $REMOTE_DIR && /QOpenSys/pkgs/bin/tar cf - .logs .evfevent 2>/dev/null" | tar xf - || true
+          python3 ci/annotate.py "$REMOTE_DIR"
+          if [ -f .logs/rpgunit.txt ]; then
+            { echo '### iRPGUnit'; echo '```'; grep -E 'Success|FAILURE|Expected|test cases' .logs/rpgunit.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ibmi-build-logs
+          path: |
+            .logs/
+            .evfevent/
+          include-hidden-files: true
+          if-no-files-found: ignore

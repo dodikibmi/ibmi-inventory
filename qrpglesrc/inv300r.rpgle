@@ -19,7 +19,7 @@
      FINVSTK1   IF   E           K DISK
      FINVMOV1   IF   E           K DISK
       *
-      /COPY DODIKIBMI1/QRPGLESRC,DATEUTILPR
+      /COPY dateutilpr.rpgleinc
       *
      DPSDS            SDS
      D  psPgm                  1     10
